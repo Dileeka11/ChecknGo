@@ -33,8 +33,8 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok", message: "ChecknGo Backend is running" });
 });
 
-// TODO: Add routes here
-// app.use('/api/products', require('./src/routes/productRoutes'));
+// API Routes
+app.use('/api/customers', require('./src/routes/customerRoutes'));
 app.use('/api/predict', require('./src/routes/predictRoutes'));
 
 // Error handling middleware
