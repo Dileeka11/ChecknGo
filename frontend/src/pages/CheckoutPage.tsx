@@ -20,6 +20,9 @@ const CheckoutPage = () => {
   const handleCapture = useCallback(async (imageData: string) => {
     setStatus('processing');
     
+    // Minimum confidence threshold (50% for testing - can increase later)
+    const CONFIDENCE_THRESHOLD = 50;
+    
     try {
       // Call real AI model API
       const response = await predictFruit(imageData);
@@ -29,6 +32,17 @@ const CheckoutPage = () => {
       }
       
       const { fruit, confidence } = response.prediction;
+      
+      // Check if confidence is too low
+      if (confidence < CONFIDENCE_THRESHOLD) {
+        setStatus('error');
+        toast.warning(
+          `Low confidence (${confidence.toFixed(1)}%). Please use a clear image of a fruit or vegetable.`,
+          { duration: 5000 }
+        );
+        return;
+      }
+      
       const unitPrice = FRUIT_PRICES[fruit] || 100;
       
       const newItem: FruitItem = {

@@ -1,5 +1,5 @@
-import { useRef, useState, useCallback, useEffect } from 'react';
-import { Camera, RefreshCw, Image, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { useRef, useState, useCallback, useEffect, ChangeEvent } from 'react';
+import { Camera, RefreshCw, Upload, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -13,6 +13,7 @@ interface CameraCaptureProps {
 const CameraCapture = ({ onCapture, status }: CameraCaptureProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -29,7 +30,7 @@ const CameraCapture = ({ onCapture, status }: CameraCaptureProps) => {
       }
     } catch (err) {
       console.error('Camera error:', err);
-      setCameraError('Unable to access camera. Please check permissions.');
+      setCameraError('Unable to access camera. Please check permissions or upload an image.');
     }
   }, []);
 
@@ -61,6 +62,27 @@ const CameraCapture = ({ onCapture, status }: CameraCaptureProps) => {
     }
   }, [onCapture]);
 
+  const handleFileUpload = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const imageData = e.target?.result as string;
+        setCapturedImage(imageData);
+        onCapture(imageData);
+      };
+      reader.readAsDataURL(file);
+    }
+    // Reset the input so the same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, [onCapture]);
+
+  const triggerFileUpload = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
   const resetCapture = useCallback(() => {
     setCapturedImage(null);
     startCamera();
@@ -79,16 +101,31 @@ const CameraCapture = ({ onCapture, status }: CameraCaptureProps) => {
   return (
     <Card className="overflow-hidden">
       <CardContent className="p-4 space-y-4">
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileUpload}
+          className="hidden"
+        />
+
         {/* Camera Preview */}
         <div className="relative aspect-square w-full max-w-md mx-auto overflow-hidden rounded-xl bg-muted">
-          {cameraError ? (
+          {cameraError && !capturedImage ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-6 text-center">
               <AlertCircle className="h-12 w-12 text-destructive" />
               <p className="text-muted-foreground">{cameraError}</p>
-              <Button onClick={startCamera} variant="outline" size="sm">
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Retry
-              </Button>
+              <div className="flex gap-2">
+                <Button onClick={startCamera} variant="outline" size="sm">
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Retry Camera
+                </Button>
+                <Button onClick={triggerFileUpload} variant="default" size="sm">
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload Image
+                </Button>
+              </div>
             </div>
           ) : capturedImage ? (
             <img
@@ -129,27 +166,36 @@ const CameraCapture = ({ onCapture, status }: CameraCaptureProps) => {
         {/* Action Buttons */}
         <div className="flex gap-3">
           {capturedImage ? (
+            <Button
+              onClick={resetCapture}
+              variant="outline"
+              className="flex-1"
+              disabled={status === 'processing'}
+            >
+              <RefreshCw className="h-5 w-5 mr-2" />
+              Retake
+            </Button>
+          ) : (
             <>
               <Button
-                onClick={resetCapture}
-                variant="outline"
+                onClick={captureImage}
                 className="flex-1"
+                size="lg"
+                disabled={!!cameraError || status === 'processing'}
+              >
+                <Camera className="h-5 w-5 mr-2" />
+                Capture
+              </Button>
+              <Button
+                onClick={triggerFileUpload}
+                variant="secondary"
+                size="lg"
                 disabled={status === 'processing'}
               >
-                <RefreshCw className="h-5 w-5 mr-2" />
-                Retake
+                <Upload className="h-5 w-5 mr-2" />
+                Upload
               </Button>
             </>
-          ) : (
-            <Button
-              onClick={captureImage}
-              className="flex-1"
-              size="lg"
-              disabled={!!cameraError || status === 'processing'}
-            >
-              <Camera className="h-5 w-5 mr-2" />
-              Capture & Identify
-            </Button>
           )}
         </div>
       </CardContent>
