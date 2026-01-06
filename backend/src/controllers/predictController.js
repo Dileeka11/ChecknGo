@@ -20,9 +20,9 @@ const predictFruit = async (req, res) => {
     const scriptPath = path.join(__dirname, "../../ai_model");
     const scriptName = "predict.py";
 
-    // Configure python-shell
+    // Configure python-shell - use text mode to handle any TensorFlow warnings
     const options = {
-      mode: "json",
+      mode: "text",
       pythonPath: "python", // Uses system Python
       scriptPath: scriptPath,
     };
@@ -32,10 +32,15 @@ const predictFruit = async (req, res) => {
 
     // Promise wrapper for python-shell
     const result = await new Promise((resolve, reject) => {
-      let output = null;
+      let outputLines = [];
 
       pyshell.on("message", (message) => {
-        output = message;
+        outputLines.push(message);
+      });
+
+      pyshell.on("stderr", (stderr) => {
+        // Ignore stderr (TensorFlow warnings)
+        console.log("Python stderr (ignored):", stderr);
       });
 
       pyshell.on("error", (err) => {
@@ -43,10 +48,24 @@ const predictFruit = async (req, res) => {
       });
 
       pyshell.on("close", () => {
-        if (output) {
-          resolve(output);
+        // Find the last line that looks like JSON
+        let jsonOutput = null;
+        for (let i = outputLines.length - 1; i >= 0; i--) {
+          const line = outputLines[i].trim();
+          if (line.startsWith('{') && line.endsWith('}')) {
+            try {
+              jsonOutput = JSON.parse(line);
+              break;
+            } catch (e) {
+              // Not valid JSON, continue searching
+            }
+          }
+        }
+        
+        if (jsonOutput) {
+          resolve(jsonOutput);
         } else {
-          reject(new Error("No output from Python script"));
+          reject(new Error("No valid JSON output from Python script. Output: " + outputLines.join('\n')));
         }
       });
 
