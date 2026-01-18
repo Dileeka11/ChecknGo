@@ -270,10 +270,97 @@ const searchStockByName = async (req, res) => {
   }
 };
 
+/**
+ * Get grouped stock with GRN batch details (for live stock page)
+ * GET /api/stock/grouped
+ * Returns items with total qty/weight and GRN-wise batch breakdown
+ */
+const getGroupedStock = async (req, res) => {
+  try {
+    // Get all available stock
+    const allStock = await Stock.find({
+      remainingQty: { $gt: 0 },
+      status: "available",
+    }).sort({ itemName: 1, receivedDate: 1 });
+
+    // Group by itemId
+    const groupedMap = new Map();
+
+    for (const stock of allStock) {
+      const itemKey = stock.itemId.toString();
+      
+      if (!groupedMap.has(itemKey)) {
+        groupedMap.set(itemKey, {
+          itemId: stock.itemId,
+          itemCode: stock.itemCode,
+          itemName: stock.itemName,
+          totalQty: 0,
+          totalWeight: 0,
+          totalCostValue: 0,
+          totalRetailValue: 0,
+          batchCount: 0,
+          batches: [],
+        });
+      }
+
+      const group = groupedMap.get(itemKey);
+      group.totalQty += stock.remainingQty;
+      group.totalWeight += stock.itemWeight;
+      group.totalCostValue += stock.remainingQty * stock.costPrice;
+      group.totalRetailValue += stock.remainingQty * stock.sellingPrice;
+      group.batchCount += 1;
+      group.batches.push({
+        stockId: stock._id,
+        grnItemId: stock.grnItemId,
+        grnNumber: stock.grnNumber,
+        remainingQty: stock.remainingQty,
+        itemWeight: stock.itemWeight,
+        costPrice: stock.costPrice,
+        sellingPrice: stock.sellingPrice,
+        receivedDate: stock.receivedDate,
+      });
+    }
+
+    // Convert map to array
+    const groupedStock = Array.from(groupedMap.values()).map(item => ({
+      ...item,
+      avgWeightPerUnit: item.totalQty > 0 ? Math.round((item.totalWeight / item.totalQty) * 100) / 100 : 0,
+    }));
+
+    // Calculate summary
+    const totalItems = groupedStock.length;
+    const totalBatches = allStock.length;
+    const totalStockQty = groupedStock.reduce((sum, item) => sum + item.totalQty, 0);
+    const totalStockWeight = groupedStock.reduce((sum, item) => sum + item.totalWeight, 0);
+    const totalCostValue = groupedStock.reduce((sum, item) => sum + item.totalCostValue, 0);
+    const totalRetailValue = groupedStock.reduce((sum, item) => sum + item.totalRetailValue, 0);
+
+    res.json({
+      success: true,
+      summary: {
+        totalItems,
+        totalBatches,
+        totalStockQty,
+        totalStockWeight: Math.round(totalStockWeight * 100) / 100,
+        totalCostValue: Math.round(totalCostValue * 100) / 100,
+        totalRetailValue: Math.round(totalRetailValue * 100) / 100,
+      },
+      data: groupedStock,
+    });
+  } catch (error) {
+    console.error("Error fetching grouped stock:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch grouped stock",
+    });
+  }
+};
+
 module.exports = {
   getAvailableStock,
   getStockByItem,
   deductStock,
   getStockSummary,
   searchStockByName,
+  getGroupedStock,
 };

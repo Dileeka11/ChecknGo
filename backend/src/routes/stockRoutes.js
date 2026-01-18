@@ -6,6 +6,7 @@ const {
   deductStock,
   getStockSummary,
   searchStockByName,
+  getGroupedStock,
 } = require("../controllers/stockController");
 
 // GET /api/stock - Get all available stock
@@ -17,6 +18,9 @@ router.get("/summary", getStockSummary);
 // GET /api/stock/search - Search stock by item name
 router.get("/search", searchStockByName);
 
+// GET /api/stock/grouped - Get grouped stock with GRN batch details
+router.get("/grouped", getGroupedStock);
+
 // GET /api/stock/item/:id - Get stock for specific item (FIFO order)
 router.get("/item/:id", getStockByItem);
 
@@ -24,4 +28,3 @@ router.get("/item/:id", getStockByItem);
 router.post("/deduct", deductStock);
 
 module.exports = router;
-
