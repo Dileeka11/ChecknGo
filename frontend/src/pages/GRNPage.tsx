@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Plus, Trash2, FileText, Save, Search } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Plus, Trash2, FileText, Save, Search, RefreshCw } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,13 +13,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -30,12 +23,18 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { GRN, GRNItem, Supplier, Item } from '@/types';
-import { generateMockSuppliers, generateMockItems, generateMockGRNs } from '@/data/mockData';
+import { LoadingTable } from '@/components/ui/loading';
+
+const API_BASE_URL = 'http://localhost:5000/api';
 
 const GRNPage = () => {
-  const [suppliers] = useState<Supplier[]>(generateMockSuppliers());
-  const [items] = useState<Item[]>(generateMockItems());
-  const [grns, setGrns] = useState<GRN[]>(generateMockGRNs());
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [items, setItems] = useState<Item[]>([]);
+  const [grns, setGrns] = useState<GRN[]>([]);
+  const [isLoadingSuppliers, setIsLoadingSuppliers] = useState(true);
+  const [isLoadingItems, setIsLoadingItems] = useState(true);
+  const [isLoadingGRNs, setIsLoadingGRNs] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -58,6 +57,88 @@ const GRNPage = () => {
   // Supplier search modal
   const [supplierSearchOpen, setSupplierSearchOpen] = useState(false);
   const [supplierSearchQuery, setSupplierSearchQuery] = useState('');
+
+  const fetchSuppliers = useCallback(async () => {
+    try {
+      setIsLoadingSuppliers(true);
+      const response = await fetch(`${API_BASE_URL}/suppliers`);
+      const result = await response.json();
+      
+      if (result.success) {
+        const mappedSuppliers = result.data.map((supplier: any) => ({
+          ...supplier,
+          id: supplier._id
+        }));
+        setSuppliers(mappedSuppliers);
+      }
+    } catch (error) {
+      console.error('Failed to fetch suppliers:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load suppliers',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoadingSuppliers(false);
+    }
+  }, [toast]);
+
+  const fetchItems = useCallback(async () => {
+    try {
+      setIsLoadingItems(true);
+      const response = await fetch(`${API_BASE_URL}/items`);
+      const result = await response.json();
+      
+      if (result.success) {
+        const mappedItems = result.data.map((item: any) => ({
+          ...item,
+          id: item._id
+        }));
+        setItems(mappedItems);
+      }
+    } catch (error) {
+      console.error('Failed to fetch items:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load items',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoadingItems(false);
+    }
+  }, [toast]);
+
+  const fetchGRNs = useCallback(async () => {
+    try {
+      setIsLoadingGRNs(true);
+      const response = await fetch(`${API_BASE_URL}/grns`);
+      const result = await response.json();
+      
+      if (result.success) {
+        const mappedGRNs = result.data.map((grn: any) => ({
+          ...grn,
+          id: grn._id,
+          receivedDate: new Date(grn.receivedDate)
+        }));
+        setGrns(mappedGRNs);
+      }
+    } catch (error) {
+      console.error('Failed to fetch GRNs:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load GRNs',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoadingGRNs(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    fetchSuppliers();
+    fetchItems();
+    fetchGRNs();
+  }, [fetchSuppliers, fetchItems, fetchGRNs]);
 
   const filteredItems = items.filter(item =>
     item.name.toLowerCase().includes(itemSearchQuery.toLowerCase()) ||
@@ -128,7 +209,7 @@ const GRNPage = () => {
     setGrnItems(grnItems.filter(item => item.id !== id));
   };
 
-  const handleSaveGRN = () => {
+  const handleSaveGRN = async () => {
     if (!selectedSupplierId || grnItems.length === 0) {
       toast({
         title: 'Cannot Save GRN',
@@ -138,29 +219,70 @@ const GRNPage = () => {
       return;
     }
 
-    const newGRN: GRN = {
-      id: `grn-${Date.now()}`,
-      grnNumber: `GRN-${new Date().getFullYear()}-${String(grns.length + 1).padStart(3, '0')}`,
-      supplierId: selectedSupplierId,
-      supplierName: selectedSupplier?.name || '',
-      items: grnItems,
-      totalAmount: grnItems.reduce((sum, item) => sum + item.totalCost, 0),
-      receivedDate: new Date(),
-      createdBy: user?.name || 'Unknown',
-      status: 'received',
-    };
+    setIsSaving(true);
 
-    setGrns([newGRN, ...grns]);
-    
-    // Reset form
-    setSelectedSupplierId('');
-    setGrnItems([]);
-    setShowNewGRN(false);
+    try {
+      // Prepare items with proper structure for backend
+      const itemsForBackend = grnItems.map(item => {
+        const itemDetails = items.find(i => i.id === item.itemId);
+        return {
+          itemId: item.itemId,
+          itemCode: itemDetails?.code || '',
+          itemName: item.itemName,
+          quantity: item.quantity,
+          listPrice: item.listPrice,
+          discount: item.discount,
+          sellingPrice: item.sellingPrice,
+          totalCost: item.totalCost,
+        };
+      });
 
-    toast({
-      title: 'GRN Created',
-      description: `GRN ${newGRN.grnNumber} has been saved successfully.`,
-    });
+      const payload = {
+        supplierId: selectedSupplierId,
+        supplierName: selectedSupplier?.name || '',
+        items: itemsForBackend,
+        receivedDate: new Date().toISOString(),
+        createdBy: user?.name || 'Unknown',
+        status: 'received',
+      };
+
+      const response = await fetch(`${API_BASE_URL}/grns`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        const newGRN = {
+          ...result.data,
+          id: result.data._id,
+          receivedDate: new Date(result.data.receivedDate)
+        };
+        setGrns([newGRN, ...grns]);
+        
+        // Reset form
+        setSelectedSupplierId('');
+        setGrnItems([]);
+        setShowNewGRN(false);
+
+        toast({
+          title: 'GRN Created',
+          description: `GRN ${result.data.grnNumber} has been saved successfully.`,
+        });
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to save GRN',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const totalAmount = grnItems.reduce((sum, item) => sum + item.totalCost, 0);
@@ -183,12 +305,17 @@ const GRNPage = () => {
                 </p>
               </div>
             </div>
-            {!showNewGRN && (
-              <Button onClick={() => setShowNewGRN(true)} className="gap-2">
-                <Plus className="h-4 w-4" />
-                New GRN
+            <div className="flex gap-2">
+              <Button variant="outline" size="icon" onClick={fetchGRNs} disabled={isLoadingGRNs}>
+                <RefreshCw className={`h-4 w-4 ${isLoadingGRNs ? 'animate-spin' : ''}`} />
               </Button>
-            )}
+              {!showNewGRN && (
+                <Button onClick={() => setShowNewGRN(true)} className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  New GRN
+                </Button>
+              )}
+            </div>
           </CardHeader>
 
           {showNewGRN && (
@@ -223,41 +350,45 @@ const GRNPage = () => {
                           />
                         </div>
                         <div className="max-h-[300px] overflow-y-auto rounded-md border">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Code</TableHead>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Contact</TableHead>
-                                <TableHead></TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {filteredSuppliers.length > 0 ? (
-                                filteredSuppliers.map((supplier) => (
-                                  <TableRow key={supplier.id} className="cursor-pointer hover:bg-muted/50">
-                                    <TableCell className="font-medium">{supplier.code}</TableCell>
-                                    <TableCell>{supplier.name}</TableCell>
-                                    <TableCell className="text-muted-foreground">{supplier.phone}</TableCell>
-                                    <TableCell>
-                                      <Button
-                                        size="sm"
-                                        onClick={() => handleSelectSupplier(supplier)}
-                                      >
-                                        Select
-                                      </Button>
+                          {isLoadingSuppliers ? (
+                            <div className="p-8 text-center text-muted-foreground">Loading suppliers...</div>
+                          ) : (
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Code</TableHead>
+                                  <TableHead>Name</TableHead>
+                                  <TableHead>Contact</TableHead>
+                                  <TableHead></TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {filteredSuppliers.length > 0 ? (
+                                  filteredSuppliers.map((supplier) => (
+                                    <TableRow key={supplier.id} className="cursor-pointer hover:bg-muted/50">
+                                      <TableCell className="font-medium">{supplier.code}</TableCell>
+                                      <TableCell>{supplier.name}</TableCell>
+                                      <TableCell className="text-muted-foreground">{supplier.phone}</TableCell>
+                                      <TableCell>
+                                        <Button
+                                          size="sm"
+                                          onClick={() => handleSelectSupplier(supplier)}
+                                        >
+                                          Select
+                                        </Button>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))
+                                ) : (
+                                  <TableRow>
+                                    <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                                      No suppliers found
                                     </TableCell>
                                   </TableRow>
-                                ))
-                              ) : (
-                                <TableRow>
-                                  <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                                    No suppliers found
-                                  </TableCell>
-                                </TableRow>
-                              )}
-                            </TableBody>
-                          </Table>
+                                )}
+                              </TableBody>
+                            </Table>
+                          )}
                         </div>
                       </div>
                     </DialogContent>
@@ -304,41 +435,45 @@ const GRNPage = () => {
                               />
                             </div>
                             <div className="max-h-[300px] overflow-y-auto rounded-md border">
-                              <Table>
-                                <TableHeader>
-                                  <TableRow>
-                                    <TableHead>Code</TableHead>
-                                    <TableHead>Name</TableHead>
-                                    <TableHead className="text-right">Price</TableHead>
-                                    <TableHead></TableHead>
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {filteredItems.length > 0 ? (
-                                    filteredItems.map((item) => (
-                                      <TableRow key={item.id} className="cursor-pointer hover:bg-muted/50">
-                                        <TableCell className="font-medium">{item.code}</TableCell>
-                                        <TableCell>{item.name}</TableCell>
-                                        <TableCell className="text-right">Rs. {item.sellingPrice.toFixed(2)}</TableCell>
-                                        <TableCell>
-                                          <Button
-                                            size="sm"
-                                            onClick={() => handleSelectItem(item)}
-                                          >
-                                            Add
-                                          </Button>
+                              {isLoadingItems ? (
+                                <div className="p-8 text-center text-muted-foreground">Loading items...</div>
+                              ) : (
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead>Code</TableHead>
+                                      <TableHead>Name</TableHead>
+                                      <TableHead className="text-right">Price</TableHead>
+                                      <TableHead></TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {filteredItems.length > 0 ? (
+                                      filteredItems.map((item) => (
+                                        <TableRow key={item.id} className="cursor-pointer hover:bg-muted/50">
+                                          <TableCell className="font-medium">{item.code}</TableCell>
+                                          <TableCell>{item.name}</TableCell>
+                                          <TableCell className="text-right">Rs. {item.sellingPrice.toFixed(2)}</TableCell>
+                                          <TableCell>
+                                            <Button
+                                              size="sm"
+                                              onClick={() => handleSelectItem(item)}
+                                            >
+                                              Add
+                                            </Button>
+                                          </TableCell>
+                                        </TableRow>
+                                      ))
+                                    ) : (
+                                      <TableRow>
+                                        <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                                          No items found
                                         </TableCell>
                                       </TableRow>
-                                    ))
-                                  ) : (
-                                    <TableRow>
-                                      <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                                        No items found
-                                      </TableCell>
-                                    </TableRow>
-                                  )}
-                                </TableBody>
-                              </Table>
+                                    )}
+                                  </TableBody>
+                                </Table>
+                              )}
                             </div>
                           </div>
                         </DialogContent>
@@ -443,12 +578,12 @@ const GRNPage = () => {
                     setShowNewGRN(false);
                     setSelectedSupplierId('');
                     setGrnItems([]);
-                  }}>
+                  }} disabled={isSaving}>
                     Cancel
                   </Button>
-                  <Button onClick={handleSaveGRN} className="gap-2">
+                  <Button onClick={handleSaveGRN} className="gap-2" disabled={isSaving}>
                     <Save className="h-4 w-4" />
-                    Save GRN
+                    {isSaving ? 'Saving...' : 'Save GRN'}
                   </Button>
                 </div>
               </div>
@@ -462,44 +597,56 @@ const GRNPage = () => {
             <CardTitle>Recent GRNs</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>GRN Number</TableHead>
-                    <TableHead>Supplier</TableHead>
-                    <TableHead>Items</TableHead>
-                    <TableHead className="text-right">Total Amount</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Created By</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {grns.map((grn) => (
-                    <TableRow key={grn.id}>
-                      <TableCell className="font-medium">{grn.grnNumber}</TableCell>
-                      <TableCell>{grn.supplierName}</TableCell>
-                      <TableCell>{grn.items.length} items</TableCell>
-                      <TableCell className="text-right font-semibold">Rs. {grn.totalAmount.toFixed(2)}</TableCell>
-                      <TableCell>{grn.receivedDate.toLocaleDateString()}</TableCell>
-                      <TableCell>{grn.createdBy}</TableCell>
-                      <TableCell>
-                        <span className={`px-2 py-1 rounded-full text-xs ${
-                          grn.status === 'received' 
-                            ? 'bg-green-100 text-green-700' 
-                            : grn.status === 'pending'
-                            ? 'bg-yellow-100 text-yellow-700'
-                            : 'bg-red-100 text-red-700'
-                        }`}>
-                          {grn.status}
-                        </span>
-                      </TableCell>
+            {isLoadingGRNs ? (
+              <LoadingTable rows={6} columns={7} />
+            ) : (
+              <div className="rounded-lg border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>GRN Number</TableHead>
+                      <TableHead>Supplier</TableHead>
+                      <TableHead>Items</TableHead>
+                      <TableHead className="text-right">Total Amount</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Created By</TableHead>
+                      <TableHead>Status</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {grns.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                          No GRNs found
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      grns.map((grn) => (
+                        <TableRow key={grn.id}>
+                          <TableCell className="font-medium">{grn.grnNumber}</TableCell>
+                          <TableCell>{grn.supplierName}</TableCell>
+                          <TableCell>{grn.items.length} items</TableCell>
+                          <TableCell className="text-right font-semibold">Rs. {grn.totalAmount.toFixed(2)}</TableCell>
+                          <TableCell>{grn.receivedDate.toLocaleDateString()}</TableCell>
+                          <TableCell>{grn.createdBy}</TableCell>
+                          <TableCell>
+                            <span className={`px-2 py-1 rounded-full text-xs ${
+                              grn.status === 'received' 
+                                ? 'bg-green-100 text-green-700' 
+                                : grn.status === 'pending'
+                                ? 'bg-yellow-100 text-yellow-700'
+                                : 'bg-red-100 text-red-700'
+                            }`}>
+                              {grn.status}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </CardContent>
         </Card>
       </main>
