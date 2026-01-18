@@ -152,6 +152,7 @@ const createGRN = async (req, res) => {
       grnNumber: grn.grnNumber,
       grnItemId: item._id, // Reference to the specific GRN item subdocument
       quantity: item.quantity,
+      itemWeight: item.itemWeight,
       remainingQty: item.quantity, // Initially all quantity is available
       costPrice: item.listPrice,
       sellingPrice: item.sellingPrice,

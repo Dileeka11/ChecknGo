@@ -34,6 +34,11 @@ const stockSchema = new mongoose.Schema(
       required: [true, "Quantity is required"],
       min: [0, "Quantity must be positive"],
     },
+    itemWeight: {
+      type: Number,
+      required: [true, "Item weight is required"],
+      min: [0, "Item weight must be positive"],
+    },
     remainingQty: {
       type: Number,
       required: [true, "Remaining quantity is required"],

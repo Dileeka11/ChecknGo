@@ -91,6 +91,7 @@ export interface GRNItem {
   itemId: string;
   itemName: string;
   quantity: number;
+  itemWeight: number;
   listPrice: number;
   discount: number;
   sellingPrice: number;

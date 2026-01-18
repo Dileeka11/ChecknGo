@@ -46,6 +46,7 @@ const GRNPage = () => {
   // Item entry form
   const [selectedItemId, setSelectedItemId] = useState('');
   const [quantity, setQuantity] = useState('');
+  const [itemWeight, setItemWeight] = useState('');
   const [listPrice, setListPrice] = useState('');
   const [discount, setDiscount] = useState('');
   const [sellingPrice, setSellingPrice] = useState('');
@@ -175,10 +176,10 @@ const GRNPage = () => {
   };
 
   const handleAddItem = () => {
-    if (!selectedItemId || !quantity || !listPrice || !sellingPrice) {
+    if (!selectedItemId || !quantity || !itemWeight || !listPrice || !sellingPrice) {
       toast({
         title: 'Missing Fields',
-        description: 'Please fill in all item details.',
+        description: 'Please fill in all item details including weight.',
         variant: 'destructive',
       });
       return;
@@ -189,6 +190,7 @@ const GRNPage = () => {
       itemId: selectedItemId,
       itemName: selectedItem?.name || '',
       quantity: parseFloat(quantity),
+      itemWeight: parseFloat(itemWeight),
       listPrice: parseFloat(listPrice),
       discount: parseFloat(discount) || 0,
       sellingPrice: parseFloat(sellingPrice),
@@ -200,6 +202,7 @@ const GRNPage = () => {
     // Reset item form
     setSelectedItemId('');
     setQuantity('');
+    setItemWeight('');
     setListPrice('');
     setDiscount('');
     setSellingPrice('');
@@ -230,6 +233,7 @@ const GRNPage = () => {
           itemCode: itemDetails?.code || '',
           itemName: item.itemName,
           quantity: item.quantity,
+          itemWeight: item.itemWeight,
           listPrice: item.listPrice,
           discount: item.discount,
           sellingPrice: item.sellingPrice,
@@ -489,6 +493,16 @@ const GRNPage = () => {
                       />
                     </div>
                     <div className="space-y-2">
+                      <Label>Item Weight (kg)</Label>
+                      <Input
+                        type="number"
+                        value={itemWeight}
+                        onChange={(e) => setItemWeight(e.target.value)}
+                        placeholder="0.00"
+                        step="0.01"
+                      />
+                    </div>
+                    <div className="space-y-2">
                       <Label>List Price</Label>
                       <Input
                         type="number"
@@ -535,7 +549,8 @@ const GRNPage = () => {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Item</TableHead>
-                        <TableHead className="text-right">Quantity</TableHead>
+                        <TableHead className="text-right">Qty</TableHead>
+                        <TableHead className="text-right">Weight (kg)</TableHead>
                         <TableHead className="text-right">List Price</TableHead>
                         <TableHead className="text-right">Discount %</TableHead>
                         <TableHead className="text-right">Selling Price</TableHead>
@@ -548,6 +563,7 @@ const GRNPage = () => {
                         <TableRow key={item.id}>
                           <TableCell className="font-medium">{item.itemName}</TableCell>
                           <TableCell className="text-right">{item.quantity}</TableCell>
+                          <TableCell className="text-right">{item.itemWeight.toFixed(2)}</TableCell>
                           <TableCell className="text-right">Rs. {item.listPrice.toFixed(2)}</TableCell>
                           <TableCell className="text-right">{item.discount}%</TableCell>
                           <TableCell className="text-right">Rs. {item.sellingPrice.toFixed(2)}</TableCell>
