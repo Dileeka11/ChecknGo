@@ -193,9 +193,87 @@ const getStockSummary = async (req, res) => {
   }
 };
 
+/**
+ * Search stock by item name (for checkout page)
+ * GET /api/stock/search?name=<itemName>
+ * Returns availability info including qty, weight, and FIFO price
+ */
+const searchStockByName = async (req, res) => {
+  try {
+    const { name } = req.query;
+
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        error: "Item name is required",
+      });
+    }
+
+    // Find stock with matching item name (case-insensitive)
+    const stocks = await Stock.find({
+      itemName: { $regex: new RegExp(`^${name}$`, 'i') },
+      remainingQty: { $gt: 0 },
+      status: "available",
+    }).sort({ receivedDate: 1 }); // FIFO order
+
+    if (stocks.length === 0) {
+      return res.json({
+        success: true,
+        inStock: false,
+        data: null,
+        message: `${name} is not available in stock`,
+      });
+    }
+
+    // Calculate totals
+    const totalQty = stocks.reduce((sum, s) => sum + s.remainingQty, 0);
+    const totalWeight = stocks.reduce((sum, s) => sum + s.itemWeight, 0);
+    const avgWeightPerUnit = totalQty > 0 ? totalWeight / totalQty : 0;
+    
+    // FIFO price is from the oldest batch
+    const fifoPrice = stocks[0].sellingPrice;
+    const firstItemId = stocks[0].itemId;
+    const firstItemCode = stocks[0].itemCode;
+
+    // Prepare batch details
+    const batches = stocks.map(s => ({
+      stockId: s._id,
+      grnItemId: s.grnItemId,
+      grnNumber: s.grnNumber,
+      remainingQty: s.remainingQty,
+      itemWeight: s.itemWeight,
+      sellingPrice: s.sellingPrice,
+      receivedDate: s.receivedDate,
+    }));
+
+    res.json({
+      success: true,
+      inStock: true,
+      data: {
+        itemId: firstItemId,
+        itemCode: firstItemCode,
+        itemName: name,
+        availableQty: totalQty,
+        availableWeight: totalWeight,
+        avgWeightPerUnit: Math.round(avgWeightPerUnit * 100) / 100,
+        fifoPrice,
+        batchCount: stocks.length,
+        batches,
+      },
+    });
+  } catch (error) {
+    console.error("Error searching stock by name:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to search stock",
+    });
+  }
+};
+
 module.exports = {
   getAvailableStock,
   getStockByItem,
   deductStock,
   getStockSummary,
+  searchStockByName,
 };

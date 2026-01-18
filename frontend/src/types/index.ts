@@ -124,3 +124,64 @@ export interface StockItem {
   reorderLevel: number;
   lastUpdated: Date;
 }
+
+// Stock Availability (for checkout)
+export interface StockBatch {
+  stockId: string;
+  grnItemId: string;
+  grnNumber: string;
+  remainingQty: number;
+  itemWeight: number;
+  sellingPrice: number;
+  receivedDate: string;
+}
+
+export interface StockAvailability {
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  availableQty: number;
+  availableWeight: number;
+  avgWeightPerUnit: number;
+  fifoPrice: number;
+  batchCount: number;
+  batches: StockBatch[];
+}
+
+// Invoice
+export interface StockDeduction {
+  grnItemId: string;
+  stockId: string;
+  qtyDeducted: number;
+  weightDeducted: number;
+  priceApplied: number;
+}
+
+export interface InvoiceItem {
+  id?: string;
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  quantity: number;
+  weight: number;
+  unitPrice: number;
+  totalPrice: number;
+  deductions?: StockDeduction[];
+}
+
+export interface Invoice {
+  id: string;
+  invoiceNumber: string;
+  customerId?: string;
+  customerName: string;
+  items: InvoiceItem[];
+  subtotal: number;
+  discount: number;
+  totalAmount: number;
+  paymentMethod: 'cash' | 'card';
+  createdBy: string;
+  status: 'completed' | 'cancelled';
+  createdAt: Date;
+  cancelledAt?: Date;
+  cancelReason?: string;
+}
