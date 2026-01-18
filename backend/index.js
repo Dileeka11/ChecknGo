@@ -38,6 +38,7 @@ app.use('/api/customers', require('./src/routes/customerRoutes'));
 app.use('/api/suppliers', require('./src/routes/supplierRoutes'));
 app.use('/api/items', require('./src/routes/itemRoutes'));
 app.use('/api/grns', require('./src/routes/grnRoutes'));
+app.use('/api/stock', require('./src/routes/stockRoutes'));
 app.use('/api/predict', require('./src/routes/predictRoutes'));
 
 // Error handling middleware
