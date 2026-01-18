@@ -1,4 +1,5 @@
 const GRN = require("../models/GRN");
+const Stock = require("../models/Stock");
 
 /**
  * Generate next GRN number based on current year
@@ -141,6 +142,24 @@ const createGRN = async (req, res) => {
       createdBy,
       status: status || "received",
     });
+    
+    // Create stock entries for each GRN item (for FIFO invoicing)
+    const stockEntries = grn.items.map((item) => ({
+      itemId: item.itemId,
+      itemCode: item.itemCode,
+      itemName: item.itemName,
+      grnId: grn._id,
+      grnNumber: grn.grnNumber,
+      grnItemId: item._id, // Reference to the specific GRN item subdocument
+      quantity: item.quantity,
+      remainingQty: item.quantity, // Initially all quantity is available
+      costPrice: item.listPrice,
+      sellingPrice: item.sellingPrice,
+      receivedDate: grn.receivedDate,
+      status: "available",
+    }));
+    
+    await Stock.insertMany(stockEntries);
     
     // Populate supplier details for response
     await grn.populate('supplierId', 'code name');
