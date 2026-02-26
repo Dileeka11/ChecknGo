@@ -196,3 +196,36 @@ export const getInvoiceById = async (invoiceId: string): Promise<InvoiceResponse
     };
   }
 };
+
+export interface WeightReadResponse {
+  success: boolean;
+  weight?: number;
+  unit?: string;
+  detectedText?: string;
+  confidence?: number;
+  error?: string;
+}
+
+/**
+ * Read weight from scale camera image using OCR
+ */
+export const readWeightFromImage = async (imageData: string): Promise<WeightReadResponse> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/weight/read`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ imageData }),
+    });
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Weight OCR API error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to read weight',
+    };
+  }
+};
