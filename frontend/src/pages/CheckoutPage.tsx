@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import Header from '@/components/layout/Header';
 import CameraCapture from '@/components/checkout/CameraCapture';
+import WeightScaleCamera from '@/components/checkout/WeightScaleCamera';
 import ResultsPanel from '@/components/checkout/ResultsPanel';
 import TransactionList from '@/components/checkout/TransactionList';
 import InvoicePrint from '@/components/checkout/InvoicePrint';
@@ -102,6 +103,19 @@ const CheckoutPage = () => {
   }, []);
 
   const handleWeightChange = useCallback((weight: number) => {
+    setCurrentWeight(weight);
+    if (currentItem) {
+      const totalPrice = Math.round(currentQuantity * currentItem.unitPrice * 100) / 100;
+      setCurrentItem({
+        ...currentItem,
+        weight,
+        quantity: currentQuantity,
+        totalPrice,
+      });
+    }
+  }, [currentItem, currentQuantity]);
+
+  const handleWeightDetected = useCallback((weight: number) => {
     setCurrentWeight(weight);
     if (currentItem) {
       const totalPrice = Math.round(currentQuantity * currentItem.unitPrice * 100) / 100;
@@ -270,6 +284,10 @@ const CheckoutPage = () => {
           {/* Left: Camera Section */}
           <div className="space-y-6">
             <CameraCapture onCapture={handleCapture} status={status} />
+            <WeightScaleCamera
+              onWeightDetected={handleWeightDetected}
+              disabled={!currentItem}
+            />
           </div>
 
           {/* Right: Results & Transaction */}

@@ -2,10 +2,10 @@ const { PythonShell } = require("python-shell");
 const path = require("path");
 
 /**
- * Predict fruit/vegetable from image
- * POST /api/predict
+ * Read weight from scale image using OCR
+ * POST /api/weight/read
  */
-const predictFruit = async (req, res) => {
+const readWeight = async (req, res) => {
   try {
     const { imageData } = req.body;
 
@@ -16,21 +16,25 @@ const predictFruit = async (req, res) => {
       });
     }
 
-    // Path to Python script
-    const scriptPath = path.join(__dirname, "../../ai_model");
-    const scriptName = "predict.py";
+    const apiKey = process.env.GOOGLE_CLOUD_VISION_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({
+        success: false,
+        error: "Google Cloud Vision API key not configured in .env file.",
+      });
+    }
 
-    // Configure python-shell - use text mode to handle any TensorFlow warnings
+    const scriptPath = path.join(__dirname, "../../ai_model");
+    const scriptName = "weight_ocr.py";
+
     const options = {
       mode: "text",
       pythonPath: process.env.PYTHON_PATH || "python", // Allows explicit path to override default
       scriptPath: scriptPath,
     };
 
-    // Create a new PythonShell instance
     const pyshell = new PythonShell(scriptName, options);
 
-    // Promise wrapper for python-shell
     const result = await new Promise((resolve, reject) => {
       let outputLines = [];
 
@@ -39,8 +43,7 @@ const predictFruit = async (req, res) => {
       });
 
       pyshell.on("stderr", (stderr) => {
-        // Ignore stderr (TensorFlow warnings)
-        console.log("Python stderr (ignored):", stderr);
+        console.log("Weight OCR stderr (ignored):", stderr);
       });
 
       pyshell.on("error", (err) => {
@@ -48,29 +51,27 @@ const predictFruit = async (req, res) => {
       });
 
       pyshell.on("close", () => {
-        // Find the last line that looks like JSON
         let jsonOutput = null;
         for (let i = outputLines.length - 1; i >= 0; i--) {
           const line = outputLines[i].trim();
-          if (line.startsWith('{') && line.endsWith('}')) {
+          if (line.startsWith("{") && line.endsWith("}")) {
             try {
               jsonOutput = JSON.parse(line);
               break;
             } catch (e) {
-              // Not valid JSON, continue searching
+              // Not valid JSON, continue
             }
           }
         }
-        
+
         if (jsonOutput) {
           resolve(jsonOutput);
         } else {
-          reject(new Error("No valid JSON output from Python script. Output: " + outputLines.join('\n')));
+          reject(new Error("No valid JSON output from weight OCR script: " + outputLines.join('\n')));
         }
       });
 
-      // Send image data to Python script
-      pyshell.send(JSON.stringify({ imageData }));
+      pyshell.send(JSON.stringify({ imageData, apiKey }));
       pyshell.end((err) => {
         if (err) reject(err);
       });
@@ -79,17 +80,15 @@ const predictFruit = async (req, res) => {
     if (result.success) {
       res.json(result);
     } else {
-      res.status(500).json(result);
+      res.status(400).json(result);
     }
   } catch (error) {
-    console.error("Prediction error:", error);
+    console.error("Weight OCR error:", error);
     res.status(500).json({
       success: false,
-      error: error.message || "Prediction failed",
+      error: error.message || "Weight reading failed",
     });
   }
 };
 
-module.exports = {
-  predictFruit,
-};
+module.exports = { readWeight };
