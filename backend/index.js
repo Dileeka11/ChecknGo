@@ -42,6 +42,7 @@ app.use('/api/stock', require('./src/routes/stockRoutes'));
 app.use('/api/predict', require('./src/routes/predictRoutes'));
 app.use('/api/invoices', require('./src/routes/invoiceRoutes'));
 app.use('/api/weight', require('./src/routes/weightRoutes'));
+app.use('/api/dashboard', require('./src/routes/dashboardRoutes'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {

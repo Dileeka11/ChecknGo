@@ -1,4 +1,4 @@
-import { Scale, Tag, DollarSign, Printer, RotateCcw, Edit3, Sparkles, Package, AlertCircle, Hash } from 'lucide-react';
+import { Scale, Tag, DollarSign, Printer, RotateCcw, Edit3, Sparkles, Package, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -7,12 +7,10 @@ import { FRUIT_EMOJIS } from '@/data/mockData';
 import { formatCurrency } from '@/lib/currency';
 
 interface ResultsPanelProps {
-  currentItem: (FruitItem & { quantity?: number }) | null;
+  currentItem: FruitItem | null;
   weight: number;
-  quantity?: number;
   stockInfo?: StockAvailability | null;
   onWeightChange: (weight: number) => void;
-  onQuantityChange?: (quantity: number) => void;
   onPrintBill: () => void;
   onClear: () => void;
   onManualEntry: () => void;
@@ -22,10 +20,8 @@ interface ResultsPanelProps {
 const ResultsPanel = ({
   currentItem,
   weight,
-  quantity = 1,
   stockInfo,
   onWeightChange,
-  onQuantityChange,
   onPrintBill,
   onClear,
   onManualEntry,
@@ -70,8 +66,7 @@ const ResultsPanel = ({
                 <div className="flex-1">
                   <p className="text-sm font-medium text-success">In Stock</p>
                   <p className="text-xs text-muted-foreground">
-                    Available: <span className="font-semibold">{stockInfo.availableQty} units</span> • 
-                    Avg Weight: <span className="font-semibold">{stockInfo.avgWeightPerUnit.toFixed(2)} kg/unit</span>
+                    Available: <span className="font-semibold">{stockInfo.availableWeight.toFixed(2)} kg</span>
                   </p>
                 </div>
               </div>
@@ -84,45 +79,23 @@ const ResultsPanel = ({
               </div>
             )}
 
-            {/* Quantity & Weight Inputs */}
-            <div className="grid grid-cols-2 gap-3">
-              {/* Quantity Input */}
-              <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/50 border border-border/30">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-success/10">
-                  <Hash className="h-5 w-5 text-success" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Quantity</p>
-                  <Input
-                    type="number"
-                    step="1"
-                    min="1"
-                    max={stockInfo?.availableQty || 999}
-                    value={quantity || ''}
-                    onChange={(e) => onQuantityChange?.(parseInt(e.target.value) || 1)}
-                    placeholder="1"
-                    className="h-9 text-lg font-bold font-mono-numbers"
-                  />
-                </div>
+            {/* Weight Input */}
+            <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/50 border border-border/30">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10">
+                <Scale className="h-5 w-5 text-primary" />
               </div>
-              
-              {/* Weight Input */}
-              <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/50 border border-border/30">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10">
-                  <Scale className="h-5 w-5 text-primary" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Weight (kg)</p>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={weight || ''}
-                    onChange={(e) => onWeightChange(parseFloat(e.target.value) || 0)}
-                    placeholder="Enter weight"
-                    className="h-9 text-lg font-bold font-mono-numbers"
-                  />
-                </div>
+              <div className="flex-1">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Weight (kg)</p>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max={stockInfo?.availableWeight || 9999}
+                  value={weight || ''}
+                  onChange={(e) => onWeightChange(parseFloat(e.target.value) || 0)}
+                  placeholder="Enter weight"
+                  className="h-9 text-lg font-bold font-mono-numbers"
+                />
               </div>
             </div>
 
@@ -133,7 +106,7 @@ const ResultsPanel = ({
               </div>
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Unit Price (FIFO)</p>
-                <p className="text-xl font-bold font-mono-numbers">Rs. {currentItem.unitPrice}/unit</p>
+                <p className="text-xl font-bold font-mono-numbers">Rs. {currentItem.unitPrice}/kg</p>
               </div>
             </div>
 

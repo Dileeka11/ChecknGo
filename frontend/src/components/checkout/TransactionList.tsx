@@ -59,7 +59,7 @@ const TransactionList = ({
                     <div>
                       <p className="font-semibold text-foreground">{item.name}</p>
                       <p className="text-xs text-muted-foreground font-mono-numbers">
-                        {(item as any).quantity || 1} × Rs. {item.unitPrice} • {item.weight.toFixed(2)} kg
+                        {item.weight.toFixed(2)} kg × Rs. {item.unitPrice}/kg
                       </p>
                     </div>
                   </div>

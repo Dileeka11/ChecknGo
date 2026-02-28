@@ -45,8 +45,7 @@ const GRNPage = () => {
 
   // Item entry form
   const [selectedItemId, setSelectedItemId] = useState('');
-  const [quantity, setQuantity] = useState('');
-  const [itemWeight, setItemWeight] = useState('');
+  const [totalWeight, setTotalWeight] = useState('');
   const [listPrice, setListPrice] = useState('');
   const [discount, setDiscount] = useState('');
   const [sellingPrice, setSellingPrice] = useState('');
@@ -58,6 +57,9 @@ const GRNPage = () => {
   // Supplier search modal
   const [supplierSearchOpen, setSupplierSearchOpen] = useState(false);
   const [supplierSearchQuery, setSupplierSearchQuery] = useState('');
+
+  // GRN search
+  const [grnSearchQuery, setGrnSearchQuery] = useState('');
 
   const fetchSuppliers = useCallback(async () => {
     try {
@@ -151,6 +153,18 @@ const GRNPage = () => {
     supplier.code.toLowerCase().includes(supplierSearchQuery.toLowerCase())
   );
 
+  const filteredGRNs = grns.filter(grn => {
+    if (!grnSearchQuery) return true;
+    const searchLower = grnSearchQuery.toLowerCase();
+    return (
+      (grn.grnNumber && grn.grnNumber.toLowerCase().includes(searchLower)) ||
+      (grn.supplierName && grn.supplierName.toLowerCase().includes(searchLower)) ||
+      (grn.items && grn.items.some((item: any) => item.itemName && item.itemName.toLowerCase().includes(searchLower)))
+    );
+  });
+
+  const displayGRNs = grnSearchQuery ? filteredGRNs : filteredGRNs.slice(0, 20);
+
   const handleSelectItem = (item: Item) => {
     setSelectedItemId(item.id);
     setListPrice(item.costPrice.toString());
@@ -169,17 +183,17 @@ const GRNPage = () => {
   const selectedItem = items.find(i => i.id === selectedItemId);
 
   const calculateTotalCost = () => {
-    const qty = parseFloat(quantity) || 0;
+    const wt = parseFloat(totalWeight) || 0;
     const price = parseFloat(listPrice) || 0;
     const disc = parseFloat(discount) || 0;
-    return qty * price * (1 - disc / 100);
+    return wt * price * (1 - disc / 100);
   };
 
   const handleAddItem = () => {
-    if (!selectedItemId || !quantity || !itemWeight || !listPrice || !sellingPrice) {
+    if (!selectedItemId || !totalWeight || !listPrice || !sellingPrice) {
       toast({
         title: 'Missing Fields',
-        description: 'Please fill in all item details including weight.',
+        description: 'Please fill in all item details including total weight.',
         variant: 'destructive',
       });
       return;
@@ -189,8 +203,7 @@ const GRNPage = () => {
       id: `grn-item-${Date.now()}`,
       itemId: selectedItemId,
       itemName: selectedItem?.name || '',
-      quantity: parseFloat(quantity),
-      itemWeight: parseFloat(itemWeight),
+      totalWeight: parseFloat(totalWeight),
       listPrice: parseFloat(listPrice),
       discount: parseFloat(discount) || 0,
       sellingPrice: parseFloat(sellingPrice),
@@ -201,8 +214,7 @@ const GRNPage = () => {
     
     // Reset item form
     setSelectedItemId('');
-    setQuantity('');
-    setItemWeight('');
+    setTotalWeight('');
     setListPrice('');
     setDiscount('');
     setSellingPrice('');
@@ -232,8 +244,7 @@ const GRNPage = () => {
           itemId: item.itemId,
           itemCode: itemDetails?.code || '',
           itemName: item.itemName,
-          quantity: item.quantity,
-          itemWeight: item.itemWeight,
+          totalWeight: item.totalWeight,
           listPrice: item.listPrice,
           discount: item.discount,
           sellingPrice: item.sellingPrice,
@@ -484,26 +495,17 @@ const GRNPage = () => {
                       </Dialog>
                     </div>
                     <div className="space-y-2">
-                      <Label>Quantity</Label>
+                      <Label>Total Weight (kg)</Label>
                       <Input
                         type="number"
-                        value={quantity}
-                        onChange={(e) => setQuantity(e.target.value)}
-                        placeholder="0"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Item Weight (kg)</Label>
-                      <Input
-                        type="number"
-                        value={itemWeight}
-                        onChange={(e) => setItemWeight(e.target.value)}
+                        value={totalWeight}
+                        onChange={(e) => setTotalWeight(e.target.value)}
                         placeholder="0.00"
                         step="0.01"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>List Price</Label>
+                      <Label>Price per kg</Label>
                       <Input
                         type="number"
                         value={listPrice}
@@ -521,7 +523,7 @@ const GRNPage = () => {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Selling Price</Label>
+                      <Label>Selling Price per kg</Label>
                       <Input
                         type="number"
                         value={sellingPrice}
@@ -549,11 +551,10 @@ const GRNPage = () => {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Item</TableHead>
-                        <TableHead className="text-right">Qty</TableHead>
                         <TableHead className="text-right">Weight (kg)</TableHead>
-                        <TableHead className="text-right">List Price</TableHead>
+                        <TableHead className="text-right">Price/kg</TableHead>
                         <TableHead className="text-right">Discount %</TableHead>
-                        <TableHead className="text-right">Selling Price</TableHead>
+                        <TableHead className="text-right">Sell Price/kg</TableHead>
                         <TableHead className="text-right">Total Cost</TableHead>
                         <TableHead></TableHead>
                       </TableRow>
@@ -562,8 +563,7 @@ const GRNPage = () => {
                       {grnItems.map((item) => (
                         <TableRow key={item.id}>
                           <TableCell className="font-medium">{item.itemName}</TableCell>
-                          <TableCell className="text-right">{item.quantity}</TableCell>
-                          <TableCell className="text-right">{item.itemWeight.toFixed(2)}</TableCell>
+                          <TableCell className="text-right font-bold">{item.totalWeight.toFixed(2)}</TableCell>
                           <TableCell className="text-right">Rs. {item.listPrice.toFixed(2)}</TableCell>
                           <TableCell className="text-right">{item.discount}%</TableCell>
                           <TableCell className="text-right">Rs. {item.sellingPrice.toFixed(2)}</TableCell>
@@ -609,8 +609,17 @@ const GRNPage = () => {
 
         {/* Previous GRNs */}
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle>Recent GRNs</CardTitle>
+            <div className="relative w-64 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search GRNs by Number, Supplier or Item..."
+                value={grnSearchQuery}
+                onChange={(e) => setGrnSearchQuery(e.target.value)}
+                className="pl-9 h-9"
+              />
+            </div>
           </CardHeader>
           <CardContent>
             {isLoadingGRNs ? (
@@ -630,18 +639,22 @@ const GRNPage = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {grns.length === 0 ? (
+                    {displayGRNs.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                          No GRNs found
+                          No GRNs found {grnSearchQuery && 'matching your search'}
                         </TableCell>
                       </TableRow>
                     ) : (
-                      grns.map((grn) => (
+                      displayGRNs.map((grn) => (
                         <TableRow key={grn.id}>
                           <TableCell className="font-medium">{grn.grnNumber}</TableCell>
                           <TableCell>{grn.supplierName}</TableCell>
-                          <TableCell>{grn.items.length} items</TableCell>
+                          <TableCell className="max-w-[250px] truncate" title={grn.items && grn.items.length > 0 ? grn.items.map((item: any) => `${item.itemName} (${item.totalWeight}kg)`).join(', ') : 'No items'}>
+                            {grn.items && grn.items.length > 0 
+                              ? grn.items.map((item: any) => `${item.itemName} (${item.totalWeight}kg)`).join(', ')
+                              : '0 items'}
+                          </TableCell>
                           <TableCell className="text-right font-semibold">Rs. {grn.totalAmount.toFixed(2)}</TableCell>
                           <TableCell>{grn.receivedDate.toLocaleDateString()}</TableCell>
                           <TableCell>{grn.createdBy}</TableCell>

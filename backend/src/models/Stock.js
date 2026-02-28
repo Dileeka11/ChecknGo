@@ -29,29 +29,24 @@ const stockSchema = new mongoose.Schema(
       required: [true, "GRN Item ID is required"],
       unique: true, // Prevent duplicate stock entries for same GRN item
     },
-    quantity: {
+    totalWeight: {
       type: Number,
-      required: [true, "Quantity is required"],
-      min: [0, "Quantity must be positive"],
+      required: [true, "Total weight is required"],
+      min: [0, "Total weight must be positive"],
     },
-    itemWeight: {
+    remainingWeight: {
       type: Number,
-      required: [true, "Item weight is required"],
-      min: [0, "Item weight must be positive"],
-    },
-    remainingQty: {
-      type: Number,
-      required: [true, "Remaining quantity is required"],
-      min: [0, "Remaining quantity cannot be negative"],
+      required: [true, "Remaining weight is required"],
+      min: [0, "Remaining weight cannot be negative"],
     },
     costPrice: {
       type: Number,
-      required: [true, "Cost price is required"],
+      required: [true, "Cost price (per kg) is required"],
       min: [0, "Cost price must be positive"],
     },
     sellingPrice: {
       type: Number,
-      required: [true, "Selling price is required"],
+      required: [true, "Selling price (per kg) is required"],
       min: [0, "Selling price must be positive"],
     },
     receivedDate: {

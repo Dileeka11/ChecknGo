@@ -16,7 +16,7 @@ const generateInvoiceNumber = async () => {
 };
 
 /**
- * Create a new invoice with FIFO stock deduction
+ * Create a new invoice with FIFO stock deduction (weight-based)
  * POST /api/invoices
  */
 const createInvoice = async (req, res) => {
@@ -44,52 +44,55 @@ const createInvoice = async (req, res) => {
       });
     }
 
-    // Process each item and deduct stock using FIFO
+    // Process each item and deduct stock using FIFO (by weight)
     const processedItems = [];
     let subtotal = 0;
 
     for (const item of items) {
-      const { itemId, itemCode, itemName, quantity, weight } = item;
+      const { itemId, itemCode, itemName, weight } = item;
+
+      if (!weight || weight <= 0) {
+        return res.status(400).json({
+          success: false,
+          error: `Weight must be positive for ${itemName}`,
+        });
+      }
 
       // Get available stock in FIFO order
       const availableStock = await Stock.find({
         itemId,
-        remainingQty: { $gt: 0 },
+        remainingWeight: { $gt: 0 },
         status: "available",
       }).sort({ receivedDate: 1 }); // FIFO: oldest first
 
-      // Calculate total available
-      const totalAvailableQty = availableStock.reduce((sum, s) => sum + s.remainingQty, 0);
+      // Calculate total available weight
+      const totalAvailableWeight = availableStock.reduce((sum, s) => sum + s.remainingWeight, 0);
 
-      if (totalAvailableQty < quantity) {
+      if (totalAvailableWeight < weight) {
         return res.status(400).json({
           success: false,
-          error: `Insufficient stock for ${itemName}. Available: ${totalAvailableQty}, Requested: ${quantity}`,
+          error: `Insufficient stock for ${itemName}. Available: ${totalAvailableWeight.toFixed(2)} kg, Requested: ${weight.toFixed(2)} kg`,
         });
       }
 
       // Deduct using FIFO and track deductions
-      let remainingQtyToDeduct = quantity;
       let remainingWeightToDeduct = weight;
       const deductions = [];
       let itemTotalPrice = 0;
 
       for (const stock of availableStock) {
-        if (remainingQtyToDeduct <= 0) break;
+        if (remainingWeightToDeduct <= 0) break;
 
-        const qtyFromThis = Math.min(stock.remainingQty, remainingQtyToDeduct);
-        // Calculate proportional weight for this batch
-        const weightFromThis = remainingQtyToDeduct <= stock.remainingQty 
-          ? remainingWeightToDeduct 
-          : (qtyFromThis / remainingQtyToDeduct) * remainingWeightToDeduct;
+        const weightFromThis = Math.min(stock.remainingWeight, remainingWeightToDeduct);
 
-        // Calculate price for this portion
-        const portionPrice = qtyFromThis * stock.sellingPrice;
+        // Calculate price for this portion (weight * selling price per kg)
+        const portionPrice = weightFromThis * stock.sellingPrice;
         itemTotalPrice += portionPrice;
 
         // Update stock
-        stock.remainingQty -= qtyFromThis;
-        if (stock.remainingQty === 0) {
+        stock.remainingWeight -= weightFromThis;
+        stock.remainingWeight = Math.round(stock.remainingWeight * 1000) / 1000; // Avoid floating point issues
+        if (stock.remainingWeight === 0) {
           stock.status = "depleted";
         }
         await stock.save();
@@ -98,12 +101,10 @@ const createInvoice = async (req, res) => {
         deductions.push({
           grnItemId: stock.grnItemId,
           stockId: stock._id,
-          qtyDeducted: qtyFromThis,
           weightDeducted: weightFromThis,
           priceApplied: stock.sellingPrice,
         });
 
-        remainingQtyToDeduct -= qtyFromThis;
         remainingWeightToDeduct -= weightFromThis;
       }
 
@@ -114,10 +115,9 @@ const createInvoice = async (req, res) => {
         itemId,
         itemCode,
         itemName,
-        quantity,
         weight,
         unitPrice,
-        totalPrice: itemTotalPrice,
+        totalPrice: Math.round(itemTotalPrice * 100) / 100,
         deductions,
       });
 
@@ -135,9 +135,9 @@ const createInvoice = async (req, res) => {
       customerId: customerId || null,
       customerName: customerName || "Walk-in Customer",
       items: processedItems,
-      subtotal,
+      subtotal: Math.round(subtotal * 100) / 100,
       discount,
-      totalAmount,
+      totalAmount: Math.round(totalAmount * 100) / 100,
       paymentMethod,
       createdBy,
       status: "completed",
@@ -258,8 +258,9 @@ const cancelInvoice = async (req, res) => {
         const stock = await Stock.findById(deduction.stockId);
         
         if (stock) {
-          // Restore quantity and weight
-          stock.remainingQty += deduction.qtyDeducted;
+          // Restore weight
+          stock.remainingWeight += deduction.weightDeducted;
+          stock.remainingWeight = Math.round(stock.remainingWeight * 1000) / 1000; // Avoid floating point issues
           
           // Update status if was depleted
           if (stock.status === "depleted") {

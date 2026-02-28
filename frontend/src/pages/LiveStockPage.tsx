@@ -21,8 +21,7 @@ interface StockBatch {
   stockId: string;
   grnItemId: string;
   grnNumber: string;
-  remainingQty: number;
-  itemWeight: number;
+  remainingWeight: number;
   costPrice: number;
   sellingPrice: number;
   receivedDate: string;
@@ -32,11 +31,9 @@ interface GroupedStockItem {
   itemId: string;
   itemCode: string;
   itemName: string;
-  totalQty: number;
   totalWeight: number;
   totalCostValue: number;
   totalRetailValue: number;
-  avgWeightPerUnit: number;
   batchCount: number;
   batches: StockBatch[];
 }
@@ -44,7 +41,6 @@ interface GroupedStockItem {
 interface StockSummary {
   totalItems: number;
   totalBatches: number;
-  totalStockQty: number;
   totalStockWeight: number;
   totalCostValue: number;
   totalRetailValue: number;
@@ -218,9 +214,7 @@ const LiveStockPage = () => {
                       <TableHead className="w-10"></TableHead>
                       <TableHead>Code</TableHead>
                       <TableHead>Item Name</TableHead>
-                      <TableHead className="text-right">Total Qty</TableHead>
                       <TableHead className="text-right">Total Weight (kg)</TableHead>
-                      <TableHead className="text-right">Avg Wt/Unit</TableHead>
                       <TableHead className="text-right">Batches</TableHead>
                       <TableHead className="text-right">Stock Value</TableHead>
                     </TableRow>
@@ -246,9 +240,7 @@ const LiveStockPage = () => {
                             </TableCell>
                             <TableCell className="font-medium">{item.itemCode}</TableCell>
                             <TableCell className="font-semibold">{item.itemName}</TableCell>
-                            <TableCell className="text-right font-bold text-lg">{item.totalQty}</TableCell>
-                            <TableCell className="text-right font-mono-numbers">{item.totalWeight.toFixed(2)}</TableCell>
-                            <TableCell className="text-right font-mono-numbers">{item.avgWeightPerUnit.toFixed(2)}</TableCell>
+                            <TableCell className="text-right font-bold text-lg">{item.totalWeight.toFixed(2)}</TableCell>
                             <TableCell className="text-right">
                               <span className="px-2 py-1 bg-accent/10 text-accent rounded-full text-xs font-medium">
                                 {item.batchCount} GRN{item.batchCount > 1 ? 's' : ''}
@@ -260,7 +252,7 @@ const LiveStockPage = () => {
                           </TableRow>
                           
                           {/* Expanded GRN Batch Rows */}
-                          {isExpanded && item.batches.map((batch, batchIndex) => (
+                          {isExpanded && item.batches.map((batch) => (
                             <TableRow 
                               key={`${item.itemId}-${batch.stockId}`}
                               className="bg-muted/30 border-l-4 border-l-primary/50"
@@ -272,16 +264,14 @@ const LiveStockPage = () => {
                               <TableCell className="text-muted-foreground text-sm">
                                 {formatDate(batch.receivedDate)}
                               </TableCell>
-                              <TableCell className="text-right font-medium">{batch.remainingQty}</TableCell>
-                              <TableCell className="text-right font-mono-numbers text-sm">{batch.itemWeight.toFixed(2)}</TableCell>
-                              <TableCell className="text-right text-muted-foreground text-sm">-</TableCell>
+                              <TableCell className="text-right font-medium">{batch.remainingWeight.toFixed(2)} kg</TableCell>
                               <TableCell className="text-right">
                                 <span className="text-xs text-muted-foreground">
-                                  Sell: {formatCurrency(batch.sellingPrice)}
+                                  Sell: {formatCurrency(batch.sellingPrice)}/kg
                                 </span>
                               </TableCell>
                               <TableCell className="text-right font-mono-numbers text-sm">
-                                {formatCurrency(batch.remainingQty * batch.sellingPrice)}
+                                {formatCurrency(batch.remainingWeight * batch.sellingPrice)}
                               </TableCell>
                             </TableRow>
                           ))}
@@ -295,7 +285,6 @@ const LiveStockPage = () => {
 
             <div className="mt-4 text-sm text-muted-foreground">
               Showing {filteredStock.length} of {stock.length} items • 
-              Total Qty: <span className="font-semibold">{summary?.totalStockQty || 0}</span> • 
               Total Weight: <span className="font-semibold">{summary?.totalStockWeight?.toFixed(2) || 0} kg</span>
             </div>
           </CardContent>

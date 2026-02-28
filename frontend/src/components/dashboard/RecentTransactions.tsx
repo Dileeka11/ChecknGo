@@ -52,7 +52,7 @@ const RecentTransactions = ({ transactions }: RecentTransactionsProps) => {
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-success animate-pulse-soft" />
                       <span className="text-sm font-medium text-muted-foreground">
-                        {txn.timestamp.toLocaleTimeString('en-US', {
+                        {new Date(txn.timestamp).toLocaleTimeString('en-US', {
                           hour: '2-digit',
                           minute: '2-digit',
                         })}

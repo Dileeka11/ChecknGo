@@ -17,17 +17,14 @@ export interface StockSearchResponse {
     itemId: string;
     itemCode: string;
     itemName: string;
-    availableQty: number;
     availableWeight: number;
-    avgWeightPerUnit: number;
     fifoPrice: number;
     batchCount: number;
     batches: Array<{
       stockId: string;
       grnItemId: string;
       grnNumber: string;
-      remainingQty: number;
-      itemWeight: number;
+      remainingWeight: number;
       sellingPrice: number;
       receivedDate: string;
     }>;
@@ -42,7 +39,6 @@ export interface InvoiceCreateRequest {
     itemId: string;
     itemCode: string;
     itemName: string;
-    quantity: number;
     weight: number;
   }>;
   discount?: number;
@@ -60,7 +56,6 @@ export interface InvoiceResponse {
       itemId: string;
       itemCode: string;
       itemName: string;
-      quantity: number;
       weight: number;
       unitPrice: number;
       totalPrice: number;
@@ -102,7 +97,7 @@ export const predictFruit = async (imageData: string): Promise<PredictionRespons
 };
 
 /**
- * Search stock by item name to check availability
+ * Search stock by item name to check availability (weight-based)
  */
 export const searchStockByName = async (name: string): Promise<StockSearchResponse> => {
   try {
@@ -127,7 +122,7 @@ export const searchStockByName = async (name: string): Promise<StockSearchRespon
 };
 
 /**
- * Create a new invoice
+ * Create a new invoice (weight-based)
  */
 export const createInvoice = async (invoiceData: InvoiceCreateRequest): Promise<InvoiceResponse> => {
   try {
@@ -227,5 +222,69 @@ export const readWeightFromImage = async (imageData: string): Promise<WeightRead
       success: false,
       error: error instanceof Error ? error.message : 'Failed to read weight',
     };
+  }
+};
+
+/**
+ * Get dashboard stats
+ */
+export const getDashboardStats = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/dashboard/stats`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return await response.json();
+  } catch (error) {
+    console.error('API error:', error);
+    return { success: false, data: null };
+  }
+};
+
+/**
+ * Get dashboard recent transactions
+ */
+export const getDashboardRecentTransactions = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/dashboard/recent-transactions`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return await response.json();
+  } catch (error) {
+    console.error('API error:', error);
+    return { success: false, data: [] };
+  }
+};
+
+/**
+ * Get dashboard daily sales
+ */
+export const getDashboardDailySales = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/dashboard/daily-sales`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return await response.json();
+  } catch (error) {
+    console.error('API error:', error);
+    return { success: false, data: [] };
+  }
+};
+
+/**
+ * Get dashboard top sellers
+ */
+export const getDashboardTopSellers = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/dashboard/top-sellers`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return await response.json();
+  } catch (error) {
+    console.error('API error:', error);
+    return { success: false, data: [] };
   }
 };

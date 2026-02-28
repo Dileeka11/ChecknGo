@@ -1,28 +1,53 @@
-import { useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import Header from '@/components/layout/Header';
 import SummaryCards from '@/components/dashboard/SummaryCards';
 import SalesChart from '@/components/dashboard/SalesChart';
 import TopSellers from '@/components/dashboard/TopSellers';
 import RecentTransactions from '@/components/dashboard/RecentTransactions';
-import { generateMockTransactions, generateTopSellers, generateDailySales } from '@/data/mockData';
-import { useLoadingState } from '@/hooks/use-loading-state';
-import { LoadingCard, LoadingSpinner } from '@/components/ui/loading';
+import { 
+  getDashboardStats, 
+  getDashboardRecentTransactions, 
+  getDashboardDailySales, 
+  getDashboardTopSellers 
+} from '@/lib/api';
+import { LoadingCard } from '@/components/ui/loading';
 
 const DashboardPage = () => {
-  const isLoading = useLoadingState(1200);
-  const transactions = useMemo(() => generateMockTransactions(), []);
-  const topSellers = useMemo(() => generateTopSellers(), []);
-  const dailySales = useMemo(() => generateDailySales(), []);
+  const [isLoading, setIsLoading] = useState(true);
+  const [transactions, setTransactions] = useState([]);
+  const [topSellers, setTopSellers] = useState([]);
+  const [dailySales, setDailySales] = useState([]);
+  const [todayStats, setTodayStats] = useState({
+    todayTotal: 0,
+    itemsSold: 0,
+    avgTransaction: 0,
+    topItem: 'None',
+  });
 
-  const todayStats = useMemo(() => {
-    const todayTotal = dailySales[dailySales.length - 1]?.total || 0;
-    const itemsSold = dailySales[dailySales.length - 1]?.itemCount || 0;
-    const avgTransaction = transactions.length > 0
-      ? transactions.reduce((sum, t) => sum + t.totalAmount, 0) / transactions.length
-      : 0;
-    const topItem = topSellers[0]?.name || 'Apple';
-    return { todayTotal, itemsSold, avgTransaction, topItem };
-  }, [dailySales, transactions, topSellers]);
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      setIsLoading(true);
+      try {
+        const [statsRes, transRes, salesRes, sellersRes] = await Promise.all([
+          getDashboardStats(),
+          getDashboardRecentTransactions(),
+          getDashboardDailySales(),
+          getDashboardTopSellers()
+        ]);
+
+        if (statsRes.success) setTodayStats(statsRes.data);
+        if (transRes.success) setTransactions(transRes.data);
+        if (salesRes.success) setDailySales(salesRes.data);
+        if (sellersRes.success) setTopSellers(sellersRes.data);
+      } catch (error) {
+        console.error('Failed to fetch dashboard data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
 
   return (
     <div className="min-h-screen bg-background gradient-mesh">

@@ -11,11 +11,6 @@ const stockDeductionSchema = new mongoose.Schema({
     ref: "Stock",
     required: true,
   },
-  qtyDeducted: {
-    type: Number,
-    required: true,
-    min: 0,
-  },
   weightDeducted: {
     type: Number,
     required: true,
@@ -42,11 +37,6 @@ const invoiceItemSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  quantity: {
-    type: Number,
-    required: true,
-    min: [0, "Quantity must be positive"],
-  },
   weight: {
     type: Number,
     required: true,
@@ -55,7 +45,7 @@ const invoiceItemSchema = new mongoose.Schema({
   unitPrice: {
     type: Number,
     required: true,
-    min: [0, "Unit price must be positive"],
+    min: [0, "Unit price (per kg) must be positive"],
   },
   totalPrice: {
     type: Number,

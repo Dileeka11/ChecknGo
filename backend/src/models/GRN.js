@@ -1,50 +1,48 @@
 const mongoose = require("mongoose");
 
-const grnItemSchema = new mongoose.Schema({
-  itemId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Item",
-    required: true,
+const grnItemSchema = new mongoose.Schema(
+  {
+    itemId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Item",
+      required: true,
+    },
+    itemCode: {
+      type: String,
+      required: true,
+    },
+    itemName: {
+      type: String,
+      required: true,
+    },
+    totalWeight: {
+      type: Number,
+      required: [true, "Total weight is required"],
+      min: [0, "Total weight must be positive"],
+    },
+    listPrice: {
+      type: Number,
+      required: [true, "List price (per kg) is required"],
+      min: [0, "List price must be positive"],
+    },
+    discount: {
+      type: Number,
+      default: 0,
+      min: [0, "Discount cannot be negative"],
+      max: [100, "Discount cannot exceed 100%"],
+    },
+    sellingPrice: {
+      type: Number,
+      required: [true, "Selling price (per kg) is required"],
+      min: [0, "Selling price must be positive"],
+    },
+    totalCost: {
+      type: Number,
+      required: true,
+    },
   },
-  itemCode: {
-    type: String,
-    required: true,
-  },
-  itemName: {
-    type: String,
-    required: true,
-  },
-  quantity: {
-    type: Number,
-    required: [true, "Quantity is required"],
-    min: [0, "Quantity must be positive"],
-  },
-  itemWeight: {
-    type: Number,
-    required: [true, "Item weight is required"],
-    min: [0, "Item weight must be positive"],
-  },
-  listPrice: {
-    type: Number,
-    required: [true, "List price is required"],
-    min: [0, "List price must be positive"],
-  },
-  discount: {
-    type: Number,
-    default: 0,
-    min: [0, "Discount cannot be negative"],
-    max: [100, "Discount cannot exceed 100%"],
-  },
-  sellingPrice: {
-    type: Number,
-    required: [true, "Selling price is required"],
-    min: [0, "Selling price must be positive"],
-  },
-  totalCost: {
-    type: Number,
-    required: true,
-  }
-}, { _id: true });
+  { _id: true },
+);
 
 const grnSchema = new mongoose.Schema(
   {
@@ -67,11 +65,11 @@ const grnSchema = new mongoose.Schema(
       type: [grnItemSchema],
       required: true,
       validate: {
-        validator: function(items) {
+        validator: function (items) {
           return items && items.length > 0;
         },
-        message: "At least one item is required"
-      }
+        message: "At least one item is required",
+      },
     },
     totalAmount: {
       type: Number,
@@ -92,14 +90,14 @@ const grnSchema = new mongoose.Schema(
       required: true,
       enum: {
         values: ["pending", "received", "cancelled"],
-        message: "Status must be pending, received, or cancelled"
+        message: "Status must be pending, received, or cancelled",
       },
       default: "received",
     },
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 // Index for faster searches
