@@ -4,7 +4,6 @@ interface InvoicePrintProps {
     customerName: string;
     items: Array<{
       itemName: string;
-      quantity: number;
       weight: number;
       unitPrice: number;
       totalPrice: number;
@@ -69,8 +68,8 @@ const InvoicePrint = ({ invoice }: InvoicePrintProps) => {
         <thead>
           <tr style={{ borderBottom: '1px solid #ccc' }}>
             <th style={{ textAlign: 'left', padding: '6px 4px', fontWeight: 'bold' }}>Item</th>
-            <th style={{ textAlign: 'center', padding: '6px 4px', fontWeight: 'bold' }}>Qty</th>
             <th style={{ textAlign: 'center', padding: '6px 4px', fontWeight: 'bold' }}>Wt(kg)</th>
+            <th style={{ textAlign: 'center', padding: '6px 4px', fontWeight: 'bold' }}>Rs/kg</th>
             <th style={{ textAlign: 'right', padding: '6px 4px', fontWeight: 'bold' }}>Price</th>
           </tr>
         </thead>
@@ -78,8 +77,8 @@ const InvoicePrint = ({ invoice }: InvoicePrintProps) => {
           {invoice.items.map((item, index) => (
             <tr key={index} style={{ borderBottom: '1px dashed #ddd' }}>
               <td style={{ padding: '6px 4px' }}>{item.itemName}</td>
-              <td style={{ textAlign: 'center', padding: '6px 4px' }}>{item.quantity}</td>
               <td style={{ textAlign: 'center', padding: '6px 4px' }}>{item.weight.toFixed(2)}</td>
+              <td style={{ textAlign: 'center', padding: '6px 4px' }}>{item.unitPrice.toFixed(0)}</td>
               <td style={{ textAlign: 'right', padding: '6px 4px' }}>Rs. {item.totalPrice.toFixed(2)}</td>
             </tr>
           ))}

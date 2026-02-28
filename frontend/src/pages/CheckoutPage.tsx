@@ -12,11 +12,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { formatCurrency } from '@/lib/currency';
 import { predictFruit, searchStockByName, createInvoice, InvoiceResponse } from '@/lib/api';
 
-// Extended FruitItem with stock info
+// Extended FruitItem with stock info (weight-based)
 interface CheckoutItem extends FruitItem {
   itemId: string;
   itemCode: string;
-  quantity: number;
   stockInfo?: StockAvailability;
 }
 
@@ -25,7 +24,6 @@ const CheckoutPage = () => {
   const [status, setStatus] = useState<CameraStatus>('ready');
   const [currentItem, setCurrentItem] = useState<CheckoutItem | null>(null);
   const [currentWeight, setCurrentWeight] = useState<number>(0);
-  const [currentQuantity, setCurrentQuantity] = useState<number>(1);
   const [stockInfo, setStockInfo] = useState<StockAvailability | null>(null);
   const [transactionItems, setTransactionItems] = useState<CheckoutItem[]>([]);
   const [lastInvoice, setLastInvoice] = useState<InvoiceResponse['data'] | null>(null);
@@ -82,8 +80,7 @@ const CheckoutPage = () => {
         name: fruit,
         confidence,
         weight: 0,
-        quantity: 1,
-        unitPrice: stock.fifoPrice, // Use FIFO price from stock
+        unitPrice: stock.fifoPrice, // Price per kg from FIFO
         totalPrice: 0,
         timestamp: new Date(),
         imageUrl: imageData,
@@ -92,9 +89,8 @@ const CheckoutPage = () => {
       
       setCurrentItem(newItem);
       setCurrentWeight(0);
-      setCurrentQuantity(1);
       setStatus('identified');
-      toast.success(`${FRUIT_EMOJIS[fruit] || '🍎'} ${fruit} identified! Available: ${stock.availableQty} units`);
+      toast.success(`${FRUIT_EMOJIS[fruit] || '🍎'} ${fruit} identified! Available: ${stock.availableWeight.toFixed(2)} kg`);
     } catch (error) {
       setStatus('error');
       const errorMessage = error instanceof Error ? error.message : 'Failed to identify';
@@ -105,73 +101,54 @@ const CheckoutPage = () => {
   const handleWeightChange = useCallback((weight: number) => {
     setCurrentWeight(weight);
     if (currentItem) {
-      const totalPrice = Math.round(currentQuantity * currentItem.unitPrice * 100) / 100;
+      const totalPrice = Math.round(weight * currentItem.unitPrice * 100) / 100;
       setCurrentItem({
         ...currentItem,
         weight,
-        quantity: currentQuantity,
         totalPrice,
       });
     }
-  }, [currentItem, currentQuantity]);
+  }, [currentItem]);
 
   const handleWeightDetected = useCallback((weight: number) => {
     setCurrentWeight(weight);
     if (currentItem) {
-      const totalPrice = Math.round(currentQuantity * currentItem.unitPrice * 100) / 100;
+      const totalPrice = Math.round(weight * currentItem.unitPrice * 100) / 100;
       setCurrentItem({
         ...currentItem,
         weight,
-        quantity: currentQuantity,
-        totalPrice,
-      });
-    }
-  }, [currentItem, currentQuantity]);
-
-  const handleQuantityChange = useCallback((quantity: number) => {
-    setCurrentQuantity(quantity);
-    if (currentItem) {
-      const totalPrice = Math.round(quantity * currentItem.unitPrice * 100) / 100;
-      setCurrentItem({
-        ...currentItem,
-        quantity,
         totalPrice,
       });
     }
   }, [currentItem]);
 
   const handleAddToBill = useCallback(() => {
-    if (currentItem && currentQuantity > 0 && currentWeight > 0) {
-      // Check if quantity exceeds available stock
-      if (stockInfo && currentQuantity > stockInfo.availableQty) {
-        toast.error(`Only ${stockInfo.availableQty} units available in stock`);
+    if (currentItem && currentWeight > 0) {
+      // Check if weight exceeds available stock
+      if (stockInfo && currentWeight > stockInfo.availableWeight) {
+        toast.error(`Only ${stockInfo.availableWeight.toFixed(2)} kg available in stock`);
         return;
       }
       
       const finalItem: CheckoutItem = {
         ...currentItem,
         weight: currentWeight,
-        quantity: currentQuantity,
-        totalPrice: Math.round(currentQuantity * currentItem.unitPrice * 100) / 100,
+        totalPrice: Math.round(currentWeight * currentItem.unitPrice * 100) / 100,
       };
       setTransactionItems(prev => [...prev, finalItem]);
       toast.success('Item added to bill!');
       setCurrentItem(null);
       setCurrentWeight(0);
-      setCurrentQuantity(1);
       setStockInfo(null);
       setStatus('ready');
     } else if (currentWeight <= 0) {
       toast.error('Please enter weight before adding to bill');
-    } else if (currentQuantity <= 0) {
-      toast.error('Please enter quantity before adding to bill');
     }
-  }, [currentItem, currentWeight, currentQuantity, stockInfo]);
+  }, [currentItem, currentWeight, stockInfo]);
 
   const handleClear = useCallback(() => {
     setCurrentItem(null);
     setCurrentWeight(0);
-    setCurrentQuantity(1);
     setStockInfo(null);
     setStatus('ready');
   }, []);
@@ -189,14 +166,13 @@ const CheckoutPage = () => {
     if (transactionItems.length === 0) return;
     
     try {
-      // Prepare invoice data
+      // Prepare invoice data (weight-based, no quantity)
       const invoiceData = {
         customerName: 'Walk-in Customer',
         items: transactionItems.map(item => ({
           itemId: item.itemId,
           itemCode: item.itemCode,
           itemName: item.name,
-          quantity: item.quantity,
           weight: item.weight,
         })),
         paymentMethod: 'cash' as const,
@@ -229,7 +205,6 @@ const CheckoutPage = () => {
     setTransactionItems([]);
     setCurrentItem(null);
     setCurrentWeight(0);
-    setCurrentQuantity(1);
     setStockInfo(null);
     setLastInvoice(null);
     setShowPrintDialog(false);
@@ -295,10 +270,8 @@ const CheckoutPage = () => {
             <ResultsPanel
               currentItem={currentItem}
               weight={currentWeight}
-              quantity={currentQuantity}
               stockInfo={stockInfo}
               onWeightChange={handleWeightChange}
-              onQuantityChange={handleQuantityChange}
               onPrintBill={handleAddToBill}
               onClear={handleClear}
               onManualEntry={handleManualEntry}

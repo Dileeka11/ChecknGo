@@ -26,7 +26,6 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 interface InvoiceItem {
   itemName: string;
-  quantity: number;
   weight: number;
   unitPrice: number;
   totalPrice: number;
@@ -219,14 +218,14 @@ const HistoryPage = () => {
         <hr>
         <table>
           <thead>
-            <tr><th>Item</th><th class="text-center">Qty</th><th class="text-center">Wt(kg)</th><th class="text-right">Price</th></tr>
+            <tr><th>Item</th><th class="text-center">Wt(kg)</th><th class="text-center">Rs/kg</th><th class="text-right">Price</th></tr>
           </thead>
           <tbody>
             ${invoice.items.map(item => `
               <tr>
                 <td>${item.itemName}</td>
-                <td class="text-center">${item.quantity}</td>
                 <td class="text-center">${item.weight.toFixed(2)}</td>
+                <td class="text-center">${item.unitPrice.toFixed(0)}</td>
                 <td class="text-right">Rs. ${item.totalPrice.toFixed(2)}</td>
               </tr>
             `).join('')}
@@ -254,13 +253,12 @@ const HistoryPage = () => {
   };
 
   const handleExportCSV = () => {
-    const headers = ['Invoice No', 'Date', 'Customer', 'Items', 'Qty', 'Weight (kg)', 'Total (Rs.)', 'Status', 'Cashier'];
+    const headers = ['Invoice No', 'Date', 'Customer', 'Items', 'Weight (kg)', 'Total (Rs.)', 'Status', 'Cashier'];
     const rows = filteredInvoices.map(inv => [
       inv.invoiceNumber,
       new Date(inv.createdAt).toLocaleString(),
       inv.customerName,
       inv.items.map(i => i.itemName).join('; '),
-      inv.items.reduce((sum, i) => sum + i.quantity, 0),
       inv.items.reduce((sum, i) => sum + i.weight, 0).toFixed(2),
       inv.totalAmount.toFixed(2),
       inv.status,
@@ -540,8 +538,8 @@ const HistoryPage = () => {
                   <thead>
                     <tr className="border-b">
                       <th className="text-left py-2">Item</th>
-                      <th className="text-center py-2">Qty</th>
-                      <th className="text-center py-2">Weight</th>
+                      <th className="text-center py-2">Weight (kg)</th>
+                      <th className="text-center py-2">Rs/kg</th>
                       <th className="text-right py-2">Price</th>
                     </tr>
                   </thead>
@@ -549,8 +547,8 @@ const HistoryPage = () => {
                     {selectedInvoice.items.map((item, idx) => (
                       <tr key={idx} className="border-b border-dashed">
                         <td className="py-2">{item.itemName}</td>
-                        <td className="text-center py-2">{item.quantity}</td>
-                        <td className="text-center py-2">{item.weight.toFixed(2)} kg</td>
+                        <td className="text-center py-2">{item.weight.toFixed(2)}</td>
+                        <td className="text-center py-2">{formatCurrency(item.unitPrice)}</td>
                         <td className="text-right py-2">{formatCurrency(item.totalPrice)}</td>
                       </tr>
                     ))}

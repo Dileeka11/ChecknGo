@@ -1,7 +1,7 @@
 const Stock = require("../models/Stock");
 
 /**
- * Get all available stock (remainingQty > 0)
+ * Get all available stock (remainingWeight > 0)
  * GET /api/stock
  */
 const getAvailableStock = async (req, res) => {
@@ -19,7 +19,7 @@ const getAvailableStock = async (req, res) => {
     if (status) {
       query.status = status;
     } else {
-      query.remainingQty = { $gt: 0 };
+      query.remainingWeight = { $gt: 0 };
     }
 
     const stock = await Stock.find(query)
@@ -49,19 +49,19 @@ const getStockByItem = async (req, res) => {
   try {
     const stock = await Stock.find({
       itemId: req.params.id,
-      remainingQty: { $gt: 0 },
+      remainingWeight: { $gt: 0 },
       status: "available",
     })
       .populate("grnId", "grnNumber")
       .sort({ receivedDate: 1 }); // FIFO: oldest first
 
-    // Calculate total available quantity
-    const totalAvailable = stock.reduce((sum, s) => sum + s.remainingQty, 0);
+    // Calculate total available weight
+    const totalAvailableWeight = stock.reduce((sum, s) => sum + s.remainingWeight, 0);
 
     res.json({
       success: true,
       count: stock.length,
-      totalAvailable,
+      totalAvailableWeight: Math.round(totalAvailableWeight * 100) / 100,
       data: stock,
     });
   } catch (error) {
@@ -74,50 +74,51 @@ const getStockByItem = async (req, res) => {
 };
 
 /**
- * Deduct stock using FIFO method (for invoicing)
+ * Deduct stock using FIFO method (weight-based)
  * POST /api/stock/deduct
- * Body: { itemId, quantity }
+ * Body: { itemId, weight }
  */
 const deductStock = async (req, res) => {
   try {
-    const { itemId, quantity } = req.body;
+    const { itemId, weight } = req.body;
 
-    if (!itemId || !quantity || quantity <= 0) {
+    if (!itemId || !weight || weight <= 0) {
       return res.status(400).json({
         success: false,
-        error: "Please provide itemId and a positive quantity",
+        error: "Please provide itemId and a positive weight (kg)",
       });
     }
 
     // Get available stock in FIFO order
     const availableStock = await Stock.find({
       itemId,
-      remainingQty: { $gt: 0 },
+      remainingWeight: { $gt: 0 },
       status: "available",
     }).sort({ receivedDate: 1 });
 
     // Calculate total available
-    const totalAvailable = availableStock.reduce((sum, s) => sum + s.remainingQty, 0);
+    const totalAvailable = availableStock.reduce((sum, s) => sum + s.remainingWeight, 0);
 
-    if (totalAvailable < quantity) {
+    if (totalAvailable < weight) {
       return res.status(400).json({
         success: false,
-        error: `Insufficient stock. Available: ${totalAvailable}, Requested: ${quantity}`,
+        error: `Insufficient stock. Available: ${totalAvailable.toFixed(2)} kg, Requested: ${weight.toFixed(2)} kg`,
       });
     }
 
     // Deduct using FIFO
-    let remainingToDeduct = quantity;
+    let remainingToDeduct = weight;
     const deductions = [];
 
     for (const stock of availableStock) {
       if (remainingToDeduct <= 0) break;
 
-      const deductFromThis = Math.min(stock.remainingQty, remainingToDeduct);
-      stock.remainingQty -= deductFromThis;
+      const deductFromThis = Math.min(stock.remainingWeight, remainingToDeduct);
+      stock.remainingWeight -= deductFromThis;
+      stock.remainingWeight = Math.round(stock.remainingWeight * 1000) / 1000;
 
-      // Mark as depleted if no remaining quantity
-      if (stock.remainingQty === 0) {
+      // Mark as depleted if no remaining weight
+      if (stock.remainingWeight === 0) {
         stock.status = "depleted";
       }
 
@@ -137,10 +138,10 @@ const deductStock = async (req, res) => {
 
     res.json({
       success: true,
-      message: `Successfully deducted ${quantity} units`,
+      message: `Successfully deducted ${weight} kg`,
       data: {
         itemId,
-        totalDeducted: quantity,
+        totalDeducted: weight,
         deductions,
       },
     });
@@ -161,14 +162,14 @@ const getStockSummary = async (req, res) => {
   try {
     const summary = await Stock.aggregate([
       {
-        $match: { status: "available", remainingQty: { $gt: 0 } },
+        $match: { status: "available", remainingWeight: { $gt: 0 } },
       },
       {
         $group: {
           _id: "$itemId",
           itemCode: { $first: "$itemCode" },
           itemName: { $first: "$itemName" },
-          totalQuantity: { $sum: "$remainingQty" },
+          totalWeight: { $sum: "$remainingWeight" },
           batchCount: { $sum: 1 },
           oldestBatch: { $min: "$receivedDate" },
           newestBatch: { $max: "$receivedDate" },
@@ -196,7 +197,7 @@ const getStockSummary = async (req, res) => {
 /**
  * Search stock by item name (for checkout page)
  * GET /api/stock/search?name=<itemName>
- * Returns availability info including qty, weight, and FIFO price
+ * Returns availability info including weight and FIFO price per kg
  */
 const searchStockByName = async (req, res) => {
   try {
@@ -212,7 +213,7 @@ const searchStockByName = async (req, res) => {
     // Find stock with matching item name (case-insensitive)
     const stocks = await Stock.find({
       itemName: { $regex: new RegExp(`^${name}$`, 'i') },
-      remainingQty: { $gt: 0 },
+      remainingWeight: { $gt: 0 },
       status: "available",
     }).sort({ receivedDate: 1 }); // FIFO order
 
@@ -225,12 +226,10 @@ const searchStockByName = async (req, res) => {
       });
     }
 
-    // Calculate totals
-    const totalQty = stocks.reduce((sum, s) => sum + s.remainingQty, 0);
-    const totalWeight = stocks.reduce((sum, s) => sum + s.itemWeight, 0);
-    const avgWeightPerUnit = totalQty > 0 ? totalWeight / totalQty : 0;
+    // Calculate totals (weight-based)
+    const availableWeight = stocks.reduce((sum, s) => sum + s.remainingWeight, 0);
     
-    // FIFO price is from the oldest batch
+    // FIFO price is from the oldest batch (price per kg)
     const fifoPrice = stocks[0].sellingPrice;
     const firstItemId = stocks[0].itemId;
     const firstItemCode = stocks[0].itemCode;
@@ -240,8 +239,7 @@ const searchStockByName = async (req, res) => {
       stockId: s._id,
       grnItemId: s.grnItemId,
       grnNumber: s.grnNumber,
-      remainingQty: s.remainingQty,
-      itemWeight: s.itemWeight,
+      remainingWeight: Math.round(s.remainingWeight * 100) / 100,
       sellingPrice: s.sellingPrice,
       receivedDate: s.receivedDate,
     }));
@@ -253,9 +251,7 @@ const searchStockByName = async (req, res) => {
         itemId: firstItemId,
         itemCode: firstItemCode,
         itemName: name,
-        availableQty: totalQty,
-        availableWeight: totalWeight,
-        avgWeightPerUnit: Math.round(avgWeightPerUnit * 100) / 100,
+        availableWeight: Math.round(availableWeight * 100) / 100,
         fifoPrice,
         batchCount: stocks.length,
         batches,
@@ -273,13 +269,13 @@ const searchStockByName = async (req, res) => {
 /**
  * Get grouped stock with GRN batch details (for live stock page)
  * GET /api/stock/grouped
- * Returns items with total qty/weight and GRN-wise batch breakdown
+ * Returns items with total weight and GRN-wise batch breakdown
  */
 const getGroupedStock = async (req, res) => {
   try {
     // Get all available stock
     const allStock = await Stock.find({
-      remainingQty: { $gt: 0 },
+      remainingWeight: { $gt: 0 },
       status: "available",
     }).sort({ itemName: 1, receivedDate: 1 });
 
@@ -294,7 +290,6 @@ const getGroupedStock = async (req, res) => {
           itemId: stock.itemId,
           itemCode: stock.itemCode,
           itemName: stock.itemName,
-          totalQty: 0,
           totalWeight: 0,
           totalCostValue: 0,
           totalRetailValue: 0,
@@ -304,17 +299,15 @@ const getGroupedStock = async (req, res) => {
       }
 
       const group = groupedMap.get(itemKey);
-      group.totalQty += stock.remainingQty;
-      group.totalWeight += stock.itemWeight;
-      group.totalCostValue += stock.remainingQty * stock.costPrice;
-      group.totalRetailValue += stock.remainingQty * stock.sellingPrice;
+      group.totalWeight += stock.remainingWeight;
+      group.totalCostValue += stock.remainingWeight * stock.costPrice;
+      group.totalRetailValue += stock.remainingWeight * stock.sellingPrice;
       group.batchCount += 1;
       group.batches.push({
         stockId: stock._id,
         grnItemId: stock.grnItemId,
         grnNumber: stock.grnNumber,
-        remainingQty: stock.remainingQty,
-        itemWeight: stock.itemWeight,
+        remainingWeight: stock.remainingWeight,
         costPrice: stock.costPrice,
         sellingPrice: stock.sellingPrice,
         receivedDate: stock.receivedDate,
@@ -324,13 +317,12 @@ const getGroupedStock = async (req, res) => {
     // Convert map to array
     const groupedStock = Array.from(groupedMap.values()).map(item => ({
       ...item,
-      avgWeightPerUnit: item.totalQty > 0 ? Math.round((item.totalWeight / item.totalQty) * 100) / 100 : 0,
+      totalWeight: Math.round(item.totalWeight * 100) / 100,
     }));
 
     // Calculate summary
     const totalItems = groupedStock.length;
     const totalBatches = allStock.length;
-    const totalStockQty = groupedStock.reduce((sum, item) => sum + item.totalQty, 0);
     const totalStockWeight = groupedStock.reduce((sum, item) => sum + item.totalWeight, 0);
     const totalCostValue = groupedStock.reduce((sum, item) => sum + item.totalCostValue, 0);
     const totalRetailValue = groupedStock.reduce((sum, item) => sum + item.totalRetailValue, 0);
@@ -340,7 +332,6 @@ const getGroupedStock = async (req, res) => {
       summary: {
         totalItems,
         totalBatches,
-        totalStockQty,
         totalStockWeight: Math.round(totalStockWeight * 100) / 100,
         totalCostValue: Math.round(totalCostValue * 100) / 100,
         totalRetailValue: Math.round(totalRetailValue * 100) / 100,

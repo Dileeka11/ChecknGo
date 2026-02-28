@@ -27,7 +27,7 @@ export interface DailySales {
 
 export interface TopSeller {
   name: string;
-  quantity: number;
+  weight: number;
   revenue: number;
   icon?: string;
 }
@@ -85,13 +85,12 @@ export interface Supplier {
   createdAt: Date;
 }
 
-// GRN (Goods Received Note)
+// GRN (Goods Received Note) - Weight-based
 export interface GRNItem {
   id: string;
   itemId: string;
   itemName: string;
-  quantity: number;
-  itemWeight: number;
+  totalWeight: number;
   listPrice: number;
   discount: number;
   sellingPrice: number;
@@ -110,14 +109,14 @@ export interface GRN {
   status: 'pending' | 'received' | 'cancelled';
 }
 
-// Stock
+// Stock - Weight-based
 export interface StockItem {
   id: string;
   itemId: string;
   itemCode: string;
   itemName: string;
   category: string;
-  quantity: number;
+  totalWeight: number;
   unit: string;
   costPrice: number;
   sellingPrice: number;
@@ -125,13 +124,12 @@ export interface StockItem {
   lastUpdated: Date;
 }
 
-// Stock Availability (for checkout)
+// Stock Availability (for checkout) - Weight-based
 export interface StockBatch {
   stockId: string;
   grnItemId: string;
   grnNumber: string;
-  remainingQty: number;
-  itemWeight: number;
+  remainingWeight: number;
   sellingPrice: number;
   receivedDate: string;
 }
@@ -140,19 +138,16 @@ export interface StockAvailability {
   itemId: string;
   itemCode: string;
   itemName: string;
-  availableQty: number;
   availableWeight: number;
-  avgWeightPerUnit: number;
   fifoPrice: number;
   batchCount: number;
   batches: StockBatch[];
 }
 
-// Invoice
+// Invoice - Weight-based
 export interface StockDeduction {
   grnItemId: string;
   stockId: string;
-  qtyDeducted: number;
   weightDeducted: number;
   priceApplied: number;
 }
@@ -162,7 +157,6 @@ export interface InvoiceItem {
   itemId: string;
   itemCode: string;
   itemName: string;
-  quantity: number;
   weight: number;
   unitPrice: number;
   totalPrice: number;
