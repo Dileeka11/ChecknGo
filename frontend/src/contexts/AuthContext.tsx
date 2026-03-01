@@ -1,21 +1,6 @@
 import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { User } from '@/types';
-
-// Mock users data
-export const MOCK_USERS: User[] = [
-  { id: 'user-1', email: 'manager@checkngo.com', name: 'Priya Sharma', role: 'manager' },
-  { id: 'user-2', email: 'staff1@checkngo.com', name: 'Rahul Kumar', role: 'staff' },
-  { id: 'user-3', email: 'staff2@checkngo.com', name: 'Anita Patel', role: 'staff' },
-  { id: 'user-4', email: 'staff3@checkngo.com', name: 'Vikram Singh', role: 'staff' },
-];
-
-// Mock passwords (in real app, this would be hashed and on backend)
-const MOCK_PASSWORDS: Record<string, string> = {
-  'manager@checkngo.com': 'manager123',
-  'staff1@checkngo.com': 'staff123',
-  'staff2@checkngo.com': 'staff123',
-  'staff3@checkngo.com': 'staff123',
-};
+import { loginUser as loginUserApi } from '@/lib/api';
 
 interface AuthContextType {
   user: User | null;
@@ -37,37 +22,42 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = useCallback(async (email: string, password: string) => {
     setIsLoading(true);
     
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    const correctPassword = MOCK_PASSWORDS[email.toLowerCase()];
-    
-    if (!correctPassword) {
+    try {
+      const result = await loginUserApi(email, password);
+      
+      if (result.success && result.data) {
+        const userData: User = {
+          id: result.data._id,
+          email: result.data.email,
+          name: result.data.name,
+          role: result.data.role === 'manager' ? 'manager' : 'staff',
+          permissions: result.data.permissions,
+        };
+        
+        setUser(userData);
+        localStorage.setItem('checkngo_user', JSON.stringify(userData));
+        
+        // Store JWT token
+        if (result.token) {
+          localStorage.setItem('checkngo_token', result.token);
+        }
+        
+        setIsLoading(false);
+        return { success: true };
+      }
+      
       setIsLoading(false);
-      return { success: false, error: 'User not found' };
-    }
-    
-    if (correctPassword !== password) {
+      return { success: false, error: result.message || 'Login failed' };
+    } catch (error) {
       setIsLoading(false);
-      return { success: false, error: 'Invalid password' };
+      return { success: false, error: 'Failed to connect to server' };
     }
-    
-    const foundUser = MOCK_USERS.find(u => u.email.toLowerCase() === email.toLowerCase());
-    
-    if (foundUser) {
-      setUser(foundUser);
-      localStorage.setItem('checkngo_user', JSON.stringify(foundUser));
-      setIsLoading(false);
-      return { success: true };
-    }
-    
-    setIsLoading(false);
-    return { success: false, error: 'Login failed' };
   }, []);
 
   const logout = useCallback(() => {
     setUser(null);
     localStorage.removeItem('checkngo_user');
+    localStorage.removeItem('checkngo_token');
   }, []);
 
   return (

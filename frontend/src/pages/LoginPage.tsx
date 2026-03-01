@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth, MOCK_USERS } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Leaf, LogIn, Eye, EyeOff, User, Sparkles } from 'lucide-react';
+import { Leaf, LogIn, Eye, EyeOff, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { LoadingSpinner } from '@/components/ui/loading';
 
@@ -31,18 +31,6 @@ const LoginPage = () => {
       navigate('/');
     } else {
       toast.error(result.error || 'Login failed');
-    }
-  };
-
-  const handleQuickLogin = async (userEmail: string) => {
-    setEmail(userEmail);
-    const password = userEmail.includes('manager') ? 'manager123' : 'staff123';
-    setPassword(password);
-    
-    const result = await login(userEmail, password);
-    if (result.success) {
-      toast.success('Welcome to ChecknGo!');
-      navigate('/');
     }
   };
 
@@ -135,37 +123,6 @@ const LoginPage = () => {
                 )}
               </Button>
             </form>
-
-            {/* Quick Login Section */}
-            <div className="pt-6 border-t border-border/50">
-              <div className="flex items-center justify-center gap-2 mb-4">
-                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
-                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Quick Demo Access</p>
-                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
-              </div>
-              <div className="grid gap-3">
-                {MOCK_USERS.map((user, index) => (
-                  <button
-                    key={user.id}
-                    onClick={() => handleQuickLogin(user.email)}
-                    disabled={isLoading}
-                    className="flex items-center gap-4 p-4 rounded-xl border border-border/50 hover:border-primary/30 bg-secondary/20 hover:bg-secondary/50 transition-all text-left disabled:opacity-50 group animate-slide-up"
-                    style={{ animationDelay: `${index * 0.1}s` }}
-                  >
-                    <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center shadow-md group-hover:shadow-glow transition-all">
-                      <User className="w-5 h-5 text-primary-foreground" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-foreground truncate">{user.name}</p>
-                      <p className="text-xs text-muted-foreground capitalize">{user.role} Account</p>
-                    </div>
-                    <div className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-                      Click to login →
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
           </CardContent>
         </Card>
 
