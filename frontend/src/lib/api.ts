@@ -1,5 +1,26 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
+export interface UserRole {
+  _id?: string;
+  id?: string; // for frontend compatibility
+  name: string;
+  email: string;
+  role: 'manager' | 'cashier';
+  permissions: string[];
+  status: 'active' | 'inactive';
+}
+
+export interface UsersResponse {
+  success: boolean;
+  data: UserRole[];
+  message?: string;
+}
+
+export interface UserResponse {
+  success: boolean;
+  data?: UserRole;
+  message?: string;
+}
 export interface PredictionResponse {
   success: boolean;
   prediction?: {
@@ -286,5 +307,100 @@ export const getDashboardTopSellers = async () => {
   } catch (error) {
     console.error('API error:', error);
     return { success: false, data: [] };
+  }
+};
+
+/**
+ * Get all users
+ */
+export const getUsers = async (): Promise<UsersResponse> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/users`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return await response.json();
+  } catch (error) {
+    console.error('API error:', error);
+    return { success: false, data: [] };
+  }
+};
+
+/**
+ * Create a new user
+ */
+export const createUser = async (userData: Partial<UserRole>): Promise<UserResponse> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/users`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(userData),
+    });
+    return await response.json();
+  } catch (error) {
+    console.error('API error:', error);
+    return { success: false, message: error instanceof Error ? error.message : 'Server error' };
+  }
+};
+
+/**
+ * Update a user
+ */
+export const updateUser = async (userId: string, userData: Partial<UserRole>): Promise<UserResponse> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/users/${userId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(userData),
+    });
+    return await response.json();
+  } catch (error) {
+    console.error('API error:', error);
+    return { success: false, message: error instanceof Error ? error.message : 'Server error' };
+  }
+};
+
+/**
+ * Delete a user
+ */
+export const deleteUser = async (userId: string): Promise<{ success: boolean; message?: string }> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/users/${userId}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return await response.json();
+  } catch (error) {
+    console.error('API error:', error);
+    return { success: false, message: error instanceof Error ? error.message : 'Server error' };
+  }
+};
+
+/**
+ * Login user with email and password
+ */
+export const loginUser = async (email: string, password: string): Promise<{
+  success: boolean;
+  data?: {
+    _id: string;
+    name: string;
+    email: string;
+    role: 'manager' | 'cashier';
+    permissions: string[];
+    status: 'active' | 'inactive';
+  };
+  token?: string;
+  message?: string;
+}> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/users/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    return await response.json();
+  } catch (error) {
+    console.error('Login API error:', error);
+    return { success: false, message: error instanceof Error ? error.message : 'Failed to connect to server' };
   }
 };

@@ -46,6 +46,7 @@ export interface User {
   name: string;
   role: 'manager' | 'staff';
   avatar?: string;
+  permissions?: string[];
 }
 
 // Item Master

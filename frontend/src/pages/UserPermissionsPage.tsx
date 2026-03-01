@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { Shield, Edit, Trash2, Plus, Save, X, Users } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Shield, Edit, Trash2, Plus, Save, X, Users, Eye, EyeOff } from 'lucide-react';
+import { getUsers, createUser, updateUser, deleteUser, UserRole } from '@/lib/api';
 import Header from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +20,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -39,15 +51,6 @@ interface Permission {
   description: string;
 }
 
-interface UserRole {
-  id: string;
-  name: string;
-  email: string;
-  role: 'manager' | 'cashier';
-  permissions: string[];
-  status: 'active' | 'inactive';
-}
-
 const AVAILABLE_PERMISSIONS: Permission[] = [
   { id: 'dashboard_view', name: 'View Dashboard', description: 'Access to sales dashboard and analytics' },
   { id: 'checkout', name: 'Process Checkout', description: 'Process customer transactions' },
@@ -60,36 +63,9 @@ const AVAILABLE_PERMISSIONS: Permission[] = [
   { id: 'users_manage', name: 'Manage Users', description: 'Add, edit user permissions' },
 ];
 
-const INITIAL_USERS: UserRole[] = [
-  {
-    id: '1',
-    name: 'John Manager',
-    email: 'manager@store.com',
-    role: 'manager',
-    permissions: AVAILABLE_PERMISSIONS.map(p => p.id),
-    status: 'active',
-  },
-  {
-    id: '2',
-    name: 'Sarah Cashier',
-    email: 'cashier@store.com',
-    role: 'cashier',
-    permissions: ['checkout', 'stock_view', 'history_view'],
-    status: 'active',
-  },
-  {
-    id: '3',
-    name: 'Mike Staff',
-    email: 'staff@store.com',
-    role: 'cashier',
-    permissions: ['checkout', 'stock_view'],
-    status: 'active',
-  },
-];
-
 const UserPermissionsPage = () => {
-  const isLoading = useLoadingState(800);
-  const [users, setUsers] = useState<UserRole[]>(INITIAL_USERS);
+  const [users, setUsers] = useState<UserRole[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserRole | null>(null);
   const { toast } = useToast();
@@ -98,19 +74,23 @@ const UserPermissionsPage = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    password: '',
     role: 'cashier' as 'manager' | 'cashier',
     permissions: [] as string[],
     status: 'active' as 'active' | 'inactive',
   });
+  const [showPassword, setShowPassword] = useState(false);
 
   const resetForm = () => {
     setFormData({
       name: '',
       email: '',
+      password: '',
       role: 'cashier',
       permissions: [],
       status: 'active',
     });
+    setShowPassword(false);
     setEditingUser(null);
   };
 
@@ -120,6 +100,7 @@ const UserPermissionsPage = () => {
       setFormData({
         name: user.name,
         email: user.email,
+        password: '',
         role: user.role,
         permissions: user.permissions,
         status: user.status,
@@ -139,7 +120,26 @@ const UserPermissionsPage = () => {
     }));
   };
 
-  const handleSave = () => {
+  const fetchUsers = async () => {
+    setIsLoading(true);
+    const res = await getUsers();
+    if (res.success) {
+      setUsers(res.data);
+    } else {
+      toast({
+        title: 'Error Fetching Users',
+        description: res.message || 'Could not fetch users',
+        variant: 'destructive',
+      });
+    }
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const handleSave = async () => {
     if (!formData.name || !formData.email) {
       toast({
         title: 'Validation Error',
@@ -149,47 +149,111 @@ const UserPermissionsPage = () => {
       return;
     }
 
+    // Password is required only when creating a new user
+    if (!editingUser && !formData.password) {
+      toast({
+        title: 'Validation Error',
+        description: 'Password is required for new users.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (formData.password && formData.password.length < 6) {
+      toast({
+        title: 'Validation Error',
+        description: 'Password must be at least 6 characters.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     if (editingUser) {
-      setUsers(users.map(u =>
-        u.id === editingUser.id
-          ? { ...u, ...formData }
-          : u
-      ));
-      toast({
-        title: 'User Updated',
-        description: `${formData.name}'s permissions have been updated.`,
-      });
+      const editingId = editingUser._id || editingUser.id;
+      if (!editingId) return;
+
+      // Only send password if it was changed
+      const updateData = { ...formData };
+      if (!updateData.password) {
+        delete (updateData as any).password;
+      }
+      const res = await updateUser(editingId, updateData);
+      if (res.success) {
+        setUsers(users.map(u =>
+          (u._id === editingId || u.id === editingId)
+            ? { ...u, ...formData }
+            : u
+        ));
+        toast({
+          title: 'User Updated',
+          description: `${formData.name}'s permissions have been updated.`,
+        });
+      } else {
+        toast({
+          title: 'Error Updating User',
+          description: res.message,
+          variant: 'destructive',
+        });
+      }
     } else {
-      const newUser: UserRole = {
-        id: `user-${Date.now()}`,
-        ...formData,
-      };
-      setUsers([...users, newUser]);
-      toast({
-        title: 'User Added',
-        description: `${formData.name} has been added to the system.`,
-      });
+      const res = await createUser(formData);
+      if (res.success && res.data) {
+        setUsers([...users, res.data]);
+        toast({
+          title: 'User Added',
+          description: `${formData.name} has been added to the system.`,
+        });
+      } else {
+        toast({
+          title: 'Error Adding User',
+          description: res.message,
+          variant: 'destructive',
+        });
+      }
     }
 
     setIsDialogOpen(false);
     resetForm();
   };
 
-  const handleDelete = (id: string) => {
-    const user = users.find(u => u.id === id);
-    setUsers(users.filter(u => u.id !== id));
-    toast({
-      title: 'User Removed',
-      description: `${user?.name} has been removed from the system.`,
-    });
+  const handleDelete = async (id: string) => {
+    const user = users.find(u => u._id === id || u.id === id);
+    const res = await deleteUser(id);
+    if (res.success) {
+      setUsers(users.filter(u => u._id !== id && u.id !== id));
+      toast({
+        title: 'User Removed',
+        description: `${user?.name} has been removed from the system.`,
+      });
+    } else {
+      toast({
+        title: 'Error Removing User',
+        description: res.message,
+        variant: 'destructive',
+      });
+    }
   };
 
-  const handleToggleStatus = (id: string) => {
-    setUsers(users.map(u =>
-      u.id === id
-        ? { ...u, status: u.status === 'active' ? 'inactive' : 'active' }
-        : u
-    ));
+  const handleToggleStatus = async (user: UserRole) => {
+    const id = user._id || user.id;
+    if (!id) return;
+
+    const newStatus = user.status === 'active' ? 'inactive' : 'active';
+    const res = await updateUser(id, { status: newStatus });
+    
+    if (res.success) {
+      setUsers(users.map(u =>
+        (u._id === id || u.id === id)
+          ? { ...u, status: newStatus }
+          : u
+      ));
+    } else {
+      toast({
+        title: 'Error Updating Status',
+        description: res.message,
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
@@ -242,6 +306,29 @@ const UserPermissionsPage = () => {
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                         placeholder="Enter email"
                       />
+                    </div>
+                  </div>
+
+                  {/* Password field */}
+                  <div className="space-y-2">
+                    <Label htmlFor="password">
+                      Password {editingUser ? '(leave blank to keep current)' : '*'}
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        type={showPassword ? 'text' : 'password'}
+                        value={formData.password}
+                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                        placeholder={editingUser ? '••••••••' : 'Enter password (min 6 characters)'}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
                     </div>
                   </div>
 
@@ -349,7 +436,7 @@ const UserPermissionsPage = () => {
                   <TableBody>
                     {users.map((user, index) => (
                       <TableRow 
-                        key={user.id}
+                        key={user._id || user.id}
                         className="animate-fade-in"
                         style={{ animationDelay: `${index * 0.05}s` }}
                       >
@@ -387,7 +474,7 @@ const UserPermissionsPage = () => {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleToggleStatus(user.id)}
+                            onClick={() => handleToggleStatus(user)}
                             className={user.status === 'active' ? 'text-primary' : 'text-muted-foreground'}
                           >
                             <span className={`w-2 h-2 rounded-full mr-2 ${
@@ -406,14 +493,34 @@ const UserPermissionsPage = () => {
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDelete(user.id)}
-                              className="hover:bg-destructive/10"
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="hover:bg-destructive/10"
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete User</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Are you sure you want to remove {user.name}? This action cannot be undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction 
+                                    onClick={() => handleDelete(user._id || user.id || '')}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  >
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
                           </div>
                         </TableCell>
                       </TableRow>
