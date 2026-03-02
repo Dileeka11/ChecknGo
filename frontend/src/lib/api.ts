@@ -56,6 +56,7 @@ export interface StockSearchResponse {
 export interface InvoiceCreateRequest {
   customerId?: string;
   customerName?: string;
+  customerEmail?: string;
   items: Array<{
     itemId: string;
     itemCode: string;
@@ -418,6 +419,75 @@ export const getSalesPrediction = async () => {
   } catch (error) {
     console.error('Sales prediction API error:', error);
     return { success: false, data: null };
+  }
+};
+
+export interface QuickAddCustomerResponse {
+  success: boolean;
+  data?: {
+    _id: string;
+    code: string;
+    name: string;
+    email: string;
+  };
+  existing?: boolean;
+  message?: string;
+  error?: string;
+}
+
+/**
+ * Quick add customer with name and email only
+ */
+export const quickAddCustomer = async (name: string, email: string): Promise<QuickAddCustomerResponse> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/customers/quick-add`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email }),
+    });
+    return await response.json();
+  } catch (error) {
+    console.error('Quick add customer API error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to connect to server',
+    };
+  }
+};
+
+export interface CustomerSearchResult {
+  _id: string;
+  code: string;
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  isActive: boolean;
+}
+
+export interface CustomerSearchResponse {
+  success: boolean;
+  count: number;
+  data: CustomerSearchResult[];
+}
+
+/**
+ * Search customers by name, email, phone, or code
+ */
+export const searchCustomers = async (query: string): Promise<CustomerSearchResponse> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/customers?search=${encodeURIComponent(query)}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return await response.json();
+  } catch (error) {
+    console.error('Customer search API error:', error);
+    return {
+      success: false,
+      count: 0,
+      data: [],
+    };
   }
 };
 

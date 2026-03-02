@@ -1,4 +1,4 @@
-import { Trash2, ShoppingBag, Receipt, Package } from 'lucide-react';
+import { Trash2, ShoppingBag, Receipt, Package, UserPlus, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FruitItem } from '@/types';
@@ -6,11 +6,20 @@ import { FRUIT_EMOJIS } from '@/data/mockData';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/currency';
 
+interface SelectedCustomer {
+  _id: string;
+  name: string;
+  email: string;
+}
+
 interface TransactionListProps {
   items: FruitItem[];
   onRemoveItem: (id: string) => void;
   onFinalizeBill: () => void;
   onNewTransaction: () => void;
+  onQuickAddCustomer: () => void;
+  selectedCustomer: SelectedCustomer | null;
+  onClearCustomer: () => void;
 }
 
 const TransactionList = ({
@@ -18,6 +27,9 @@ const TransactionList = ({
   onRemoveItem,
   onFinalizeBill,
   onNewTransaction,
+  onQuickAddCustomer,
+  selectedCustomer,
+  onClearCustomer,
 }: TransactionListProps) => {
   const totalAmount = items.reduce((sum, item) => sum + item.totalPrice, 0);
 
@@ -39,6 +51,38 @@ const TransactionList = ({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Customer Info Bar */}
+        {selectedCustomer ? (
+          <div className="flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 border border-emerald-200 dark:border-emerald-800">
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500 text-white shadow-sm">
+                <User className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground">{selectedCustomer.name}</p>
+                <p className="text-xs text-muted-foreground">{selectedCustomer.email}</p>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClearCustomer}
+              className="text-xs text-muted-foreground hover:text-destructive"
+            >
+              Remove
+            </Button>
+          </div>
+        ) : (
+          <Button
+            variant="outline"
+            onClick={onQuickAddCustomer}
+            className="w-full h-11 border-dashed border-2 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 hover:border-emerald-400"
+          >
+            <UserPlus className="h-4 w-4 mr-2" />
+            Quick Add Customer
+          </Button>
+        )}
+
         {items.length > 0 ? (
           <>
             {/* Items List */}

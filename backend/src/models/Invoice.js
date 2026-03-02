@@ -74,6 +74,12 @@ const invoiceSchema = new mongoose.Schema(
       required: true,
       default: "Walk-in Customer",
     },
+    customerEmail: {
+      type: String,
+      default: null,
+      trim: true,
+      lowercase: true,
+    },
     items: {
       type: [invoiceItemSchema],
       required: true,

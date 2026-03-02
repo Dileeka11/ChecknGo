@@ -267,6 +267,70 @@ const getNextCode = async (req, res) => {
   }
 };
 
+/**
+ * Quick add customer (name + email only)
+ * POST /api/customers/quick-add
+ * Used from checkout page for fast customer registration
+ */
+const quickAddCustomer = async (req, res) => {
+  try {
+    const { name, email } = req.body;
+
+    // Validate required fields
+    if (!name || !email) {
+      return res.status(400).json({
+        success: false,
+        error: "Please provide both name and email",
+      });
+    }
+
+    // Check if customer with this email already exists
+    const existingCustomer = await Customer.findOne({ email: email.toLowerCase() });
+    if (existingCustomer) {
+      // Return existing customer instead of error
+      return res.status(200).json({
+        success: true,
+        message: "Customer already exists",
+        data: existingCustomer,
+        existing: true,
+      });
+    }
+
+    // Auto-generate customer code
+    const code = await generateNextCustomerCode();
+
+    const customer = await Customer.create({
+      code,
+      name,
+      email,
+      phone: "N/A",
+      address: "N/A",
+      isActive: true,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Customer created successfully",
+      data: customer,
+      existing: false,
+    });
+  } catch (error) {
+    console.error("Error quick adding customer:", error);
+
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        error: "A customer with this email already exists",
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: error.message || "Failed to quick add customer",
+    });
+  }
+};
+
 module.exports = {
   getAllCustomers,
   getCustomerById,
@@ -274,4 +338,5 @@ module.exports = {
   updateCustomer,
   deleteCustomer,
   getNextCode,
+  quickAddCustomer,
 };
