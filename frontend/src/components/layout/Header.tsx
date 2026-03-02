@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { 
   Leaf, LayoutDashboard, History, ShoppingCart, Clock, LogOut, User, 
   Package, Users, Truck, FileText, PackageSearch, ChevronDown, Shield,
-  FolderOpen, Database, BarChart3
+  FolderOpen, Database, BarChart3, TrendingUp
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -86,6 +86,7 @@ const Header = () => {
       children: [
         { path: '/stock', label: 'Live Stock', icon: PackageSearch },
         { path: '/history', label: 'History', icon: History },
+        { path: '/sales-prediction', label: 'Sales Prediction', icon: TrendingUp, managerOnly: true },
       ],
     },
     { 
