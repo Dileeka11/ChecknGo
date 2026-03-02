@@ -1,6 +1,7 @@
 const Invoice = require("../models/Invoice");
 const Stock = require("../models/Stock");
 const DocumentTracker = require("../models/DocumentTracker");
+const { sendInvoiceEmail } = require("../utils/emailService");
 
 /**
  * Generate next invoice number
@@ -24,6 +25,7 @@ const createInvoice = async (req, res) => {
     const { 
       customerId, 
       customerName, 
+      customerEmail,
       items, 
       discount = 0, 
       paymentMethod = "cash", 
@@ -134,6 +136,7 @@ const createInvoice = async (req, res) => {
       invoiceNumber,
       customerId: customerId || null,
       customerName: customerName || "Walk-in Customer",
+      customerEmail: customerEmail || null,
       items: processedItems,
       subtotal: Math.round(subtotal * 100) / 100,
       discount,
@@ -144,6 +147,13 @@ const createInvoice = async (req, res) => {
     });
 
     await invoice.save();
+
+    // Send email receipt asynchronously (don't block response)
+    if (customerEmail) {
+      sendInvoiceEmail(customerEmail, invoice.toObject()).catch((err) => {
+        console.error("Email send failed (non-blocking):", err.message);
+      });
+    }
 
     res.status(201).json({
       success: true,

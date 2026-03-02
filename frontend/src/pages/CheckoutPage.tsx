@@ -6,6 +6,7 @@ import WeightScaleCamera from '@/components/checkout/WeightScaleCamera';
 import ResultsPanel from '@/components/checkout/ResultsPanel';
 import TransactionList from '@/components/checkout/TransactionList';
 import InvoicePrint from '@/components/checkout/InvoicePrint';
+import QuickAddCustomerDialog from '@/components/checkout/QuickAddCustomerDialog';
 import { FruitItem, CameraStatus, StockAvailability } from '@/types';
 import { FRUIT_EMOJIS } from '@/data/mockData';
 import { useAuth } from '@/contexts/AuthContext';
@@ -19,6 +20,12 @@ interface CheckoutItem extends FruitItem {
   stockInfo?: StockAvailability;
 }
 
+interface SelectedCustomer {
+  _id: string;
+  name: string;
+  email: string;
+}
+
 const CheckoutPage = () => {
   const { user } = useAuth();
   const [status, setStatus] = useState<CameraStatus>('ready');
@@ -28,6 +35,8 @@ const CheckoutPage = () => {
   const [transactionItems, setTransactionItems] = useState<CheckoutItem[]>([]);
   const [lastInvoice, setLastInvoice] = useState<InvoiceResponse['data'] | null>(null);
   const [showPrintDialog, setShowPrintDialog] = useState(false);
+  const [showQuickAddCustomer, setShowQuickAddCustomer] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<SelectedCustomer | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
 
   const handleCapture = useCallback(async (imageData: string) => {
@@ -168,7 +177,9 @@ const CheckoutPage = () => {
     try {
       // Prepare invoice data (weight-based, no quantity)
       const invoiceData = {
-        customerName: 'Walk-in Customer',
+        customerId: selectedCustomer?._id,
+        customerName: selectedCustomer?.name || 'Walk-in Customer',
+        customerEmail: selectedCustomer?.email,
         items: transactionItems.map(item => ({
           itemId: item.itemId,
           itemCode: item.itemCode,
@@ -189,17 +200,22 @@ const CheckoutPage = () => {
       setShowPrintDialog(true);
       
       const total = response.data.totalAmount;
-      toast.success(`Invoice ${response.data.invoiceNumber} created! Total: ${formatCurrency(total)}`);
+      let successMsg = `Invoice ${response.data.invoiceNumber} created! Total: ${formatCurrency(total)}`;
+      if (selectedCustomer?.email) {
+        successMsg += ` | Receipt emailed to ${selectedCustomer.email}`;
+      }
+      toast.success(successMsg);
       
       setTransactionItems([]);
       setCurrentItem(null);
       setStockInfo(null);
+      setSelectedCustomer(null);
       setStatus('ready');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to create invoice';
       toast.error(errorMessage);
     }
-  }, [transactionItems, user]);
+  }, [transactionItems, user, selectedCustomer]);
 
   const handleNewTransaction = useCallback(() => {
     setTransactionItems([]);
@@ -208,6 +224,7 @@ const CheckoutPage = () => {
     setStockInfo(null);
     setLastInvoice(null);
     setShowPrintDialog(false);
+    setSelectedCustomer(null);
     setStatus('ready');
     toast.info('New transaction started');
   }, []);
@@ -251,6 +268,14 @@ const CheckoutPage = () => {
     setShowPrintDialog(false);
   }, []);
 
+  const handleCustomerAdded = useCallback((customer: { _id: string; name: string; email: string }) => {
+    setSelectedCustomer(customer);
+  }, []);
+
+  const handleClearCustomer = useCallback(() => {
+    setSelectedCustomer(null);
+  }, []);
+
   return (
     <div className="min-h-screen bg-background gradient-mesh">
       <Header />
@@ -282,11 +307,21 @@ const CheckoutPage = () => {
               onRemoveItem={handleRemoveItem}
               onFinalizeBill={handleFinalizeBill}
               onNewTransaction={handleNewTransaction}
+              onQuickAddCustomer={() => setShowQuickAddCustomer(true)}
+              selectedCustomer={selectedCustomer}
+              onClearCustomer={handleClearCustomer}
             />
           </div>
         </div>
       </main>
       
+      {/* Quick Add Customer Dialog */}
+      <QuickAddCustomerDialog
+        open={showQuickAddCustomer}
+        onOpenChange={setShowQuickAddCustomer}
+        onCustomerAdded={handleCustomerAdded}
+      />
+
       {/* Print Dialog */}
       {showPrintDialog && lastInvoice && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">

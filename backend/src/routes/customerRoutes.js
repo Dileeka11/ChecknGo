@@ -7,10 +7,14 @@ const {
   updateCustomer,
   deleteCustomer,
   getNextCode,
+  quickAddCustomer,
 } = require("../controllers/customerController");
 
 // GET /api/customers/next-code - Get next customer code (must be before /:id route)
 router.get("/next-code", getNextCode);
+
+// POST /api/customers/quick-add - Quick add customer (name + email only)
+router.post("/quick-add", quickAddCustomer);
 
 // GET /api/customers - Get all customers
 router.get("/", getAllCustomers);
