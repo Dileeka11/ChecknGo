@@ -10,9 +10,9 @@ interface TopSellersProps {
 
 const TopSellers = ({ sellers }: TopSellersProps) => {
   const getRankIcon = (index: number) => {
-    if (index === 0) return <Crown className="h-4 w-4 text-warning" />;
+    if (index === 0) return <Crown className="h-4 w-4 text-warning-foreground" />;
     if (index === 1) return <Medal className="h-4 w-4 text-muted-foreground" />;
-    if (index === 2) return <Medal className="h-4 w-4 text-warning/60" />;
+    if (index === 2) return <Medal className="h-4 w-4 text-amber-600/80" />;
     return null;
   };
 
@@ -54,7 +54,7 @@ const TopSellers = ({ sellers }: TopSellersProps) => {
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-foreground truncate">{seller.name}</p>
                 <p className="text-xs text-muted-foreground">
-                  {seller.quantity} units sold
+                  {seller.weight} units sold
                 </p>
               </div>
               <div className="text-right">
