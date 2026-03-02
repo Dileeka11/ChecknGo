@@ -16,6 +16,7 @@ import SupplierMasterPage from "./pages/SupplierMasterPage";
 import GRNPage from "./pages/GRNPage";
 import LiveStockPage from "./pages/LiveStockPage";
 import UserPermissionsPage from "./pages/UserPermissionsPage";
+import SalesPredictionPage from "./pages/SalesPredictionPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -39,6 +40,7 @@ const App = () => (
               <Route path="/grn" element={<ProtectedRoute requiredRole="manager"><GRNPage /></ProtectedRoute>} />
               <Route path="/stock" element={<ProtectedRoute><LiveStockPage /></ProtectedRoute>} />
               <Route path="/permissions" element={<ProtectedRoute requiredRole="manager"><UserPermissionsPage /></ProtectedRoute>} />
+              <Route path="/sales-prediction" element={<ProtectedRoute requiredRole="manager"><SalesPredictionPage /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AuthProvider>

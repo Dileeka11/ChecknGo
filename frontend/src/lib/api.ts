@@ -404,3 +404,20 @@ export const loginUser = async (email: string, password: string): Promise<{
     return { success: false, message: error instanceof Error ? error.message : 'Failed to connect to server' };
   }
 };
+
+/**
+ * Get sales prediction data
+ */
+export const getSalesPrediction = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/sales-prediction`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return await response.json();
+  } catch (error) {
+    console.error('Sales prediction API error:', error);
+    return { success: false, data: null };
+  }
+};
+
