@@ -70,16 +70,20 @@ const SalesChart = ({ data }: SalesChartProps) => {
               <Tooltip
                 cursor={{ fill: 'hsl(var(--muted))', opacity: 0.3, radius: 8 }}
                 contentStyle={{
-                  backgroundColor: 'hsl(var(--card))',
+                  backgroundColor: 'hsl(var(--popover))',
                   border: '1px solid hsl(var(--border))',
                   borderRadius: '12px',
-                  boxShadow: '0 10px 30px -10px rgba(0, 0, 0, 0.15)',
+                  boxShadow: '0 10px 40px -10px rgba(0, 0, 0, 0.4)',
                   padding: '12px 16px',
+                  backdropFilter: 'blur(12px)',
                 }}
                 labelStyle={{ 
                   color: 'hsl(var(--foreground))', 
                   fontWeight: 600,
                   marginBottom: '4px'
+                }}
+                itemStyle={{
+                  color: 'hsl(var(--foreground))',
                 }}
                 formatter={(value: number) => [formatCurrency(value), 'Sales']}
               />
