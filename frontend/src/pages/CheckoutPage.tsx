@@ -43,7 +43,7 @@ const CheckoutPage = () => {
     setStatus('processing');
     setStockInfo(null);
     
-    const CONFIDENCE_THRESHOLD = 50;
+    const CONFIDENCE_THRESHOLD = 70;
     
     try {
       // Call AI model to identify fruit/vegetable
