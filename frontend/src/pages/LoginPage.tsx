@@ -15,6 +15,7 @@ const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
+  const currentYear = new Date().getFullYear();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -128,7 +129,7 @@ const LoginPage = () => {
 
         {/* Footer */}
         <p className="text-center text-xs text-muted-foreground animate-fade-in">
-          © 2024 ChecknGo. Powered by AI Technology.
+          © {currentYear} ChecknGo. Powered by AI Technology.
         </p>
       </div>
     </div>

@@ -87,6 +87,8 @@ const HistoryPage = () => {
 
   const filterByDate = (invoice: Invoice) => {
     const invoiceDate = new Date(invoice.createdAt);
+    invoiceDate.setHours(0, 0, 0, 0);
+    
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
@@ -98,7 +100,7 @@ const HistoryPage = () => {
 
     switch (dateFilter) {
       case 'today':
-        return invoiceDate >= today;
+        return invoiceDate.getTime() === today.getTime();
       case 'week':
         return invoiceDate >= weekAgo;
       case 'month':
