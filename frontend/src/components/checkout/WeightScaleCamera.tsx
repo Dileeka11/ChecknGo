@@ -1,7 +1,14 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
-import { Camera, RefreshCw, Loader2, Scale, CheckCircle, AlertCircle, Upload } from 'lucide-react';
+import { Camera, RefreshCw, Loader2, Scale, CheckCircle, AlertCircle, Upload, SwitchCamera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { readWeightFromImage } from '@/lib/api';
 import { toast } from 'sonner';
 
@@ -16,53 +23,75 @@ const WeightScaleCamera = ({ onWeightDetected, disabled }: WeightScaleCameraProp
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [stream, setStream] = useState<MediaStream | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const [status, setStatus] = useState<WeightStatus>('ready');
   const [detectedWeight, setDetectedWeight] = useState<number | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
 
-  const startCamera = useCallback(async () => {
+  const stopCamera = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+  }, []);
+
+  const startCamera = useCallback(async (deviceId?: string) => {
     try {
       setCameraError(null);
-      // Use a different camera if available (e.g., second USB camera)
+      // Stop any existing stream first
+      stopCamera();
+
+      // Enumerate devices to populate the dropdown and find a default
       const devices = await navigator.mediaDevices.enumerateDevices();
-      const videoDevices = devices.filter(d => d.kind === 'videoinput');
-      
-      // Try to use the second camera if available, otherwise use the first
-      const deviceId = videoDevices.length > 1 
-        ? videoDevices[1].deviceId  // Second camera for weight scale
-        : videoDevices[0]?.deviceId; // Fallback to first camera
-      
+      const cameras = devices.filter(d => d.kind === 'videoinput');
+      setVideoDevices(cameras);
+
+      // Determine which device to use
+      let targetDeviceId = deviceId || '';
+
+      if (!targetDeviceId && cameras.length > 0) {
+        // Default to second camera (weight scale) if available, otherwise first
+        const defaultIndex = cameras.length > 1 ? 1 : 0;
+        targetDeviceId = cameras[defaultIndex].deviceId;
+        setSelectedDeviceId(targetDeviceId);
+      }
+
       const constraints: MediaStreamConstraints = {
-        video: deviceId 
-          ? { deviceId: { exact: deviceId }, width: 640, height: 480 }
+        video: targetDeviceId
+          ? { deviceId: { exact: targetDeviceId }, width: 640, height: 480 }
           : { width: 640, height: 480 }
       };
       
       const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-      setStream(mediaStream);
+      streamRef.current = mediaStream;
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
       }
+
+      // Re-enumerate after permission to get full device labels
+      const updatedDevices = await navigator.mediaDevices.enumerateDevices();
+      const updatedCameras = updatedDevices.filter(d => d.kind === 'videoinput');
+      setVideoDevices(updatedCameras);
     } catch (err) {
       console.error('Weight camera error:', err);
       setCameraError('Unable to access weight scale camera.');
     }
-  }, []);
-
-  const stopCamera = useCallback(() => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-      setStream(null);
-    }
-  }, [stream]);
+  }, [stopCamera]);
 
   useEffect(() => {
     if (!disabled) {
       startCamera();
     }
     return () => stopCamera();
-  }, [disabled, startCamera]);
+  }, [disabled]);
+
+  // Handle camera selection change
+  const handleCameraChange = useCallback((newDeviceId: string) => {
+    setSelectedDeviceId(newDeviceId);
+    startCamera(newDeviceId);
+  }, [startCamera]);
 
   const captureAndRead = useCallback(async () => {
     if (!videoRef.current || !canvasRef.current) return;
@@ -160,13 +189,32 @@ const WeightScaleCamera = ({ onWeightDetected, disabled }: WeightScaleCameraProp
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
+        {/* Camera Selector */}
+        {videoDevices.length > 1 && (
+          <div className="flex items-center gap-2">
+            <SwitchCamera className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <Select value={selectedDeviceId} onValueChange={handleCameraChange}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Select Camera" />
+              </SelectTrigger>
+              <SelectContent>
+                {videoDevices.map((device, index) => (
+                  <SelectItem key={device.deviceId} value={device.deviceId}>
+                    {device.label || `Camera ${index + 1}`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         {/* Camera Preview */}
         <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-muted">
           {cameraError ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-4 text-center">
               <AlertCircle className="h-8 w-8 text-destructive" />
               <p className="text-sm text-muted-foreground">{cameraError}</p>
-              <Button onClick={startCamera} variant="outline" size="sm">
+              <Button onClick={() => startCamera()} variant="outline" size="sm">
                 <RefreshCw className="h-4 w-4 mr-1" /> Retry
               </Button>
             </div>
@@ -192,6 +240,8 @@ const WeightScaleCamera = ({ onWeightDetected, disabled }: WeightScaleCameraProp
             {current.label}
           </div>
         </div>
+
+        <canvas ref={canvasRef} className="hidden" />
 
         {/* Capture Buttons */}
         <div className="flex gap-2">
