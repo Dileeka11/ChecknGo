@@ -1,7 +1,14 @@
 import { useRef, useState, useCallback, useEffect, ChangeEvent } from 'react';
-import { Camera, RefreshCw, Upload, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { Camera, RefreshCw, Upload, CheckCircle, AlertCircle, Loader2, SwitchCamera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { CameraStatus } from '@/types';
 
@@ -14,37 +21,70 @@ const CameraCapture = ({ onCapture, status }: CameraCaptureProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [stream, setStream] = useState<MediaStream | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
 
-  const startCamera = useCallback(async () => {
+  const stopCamera = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+  }, []);
+
+  const startCamera = useCallback(async (deviceId?: string) => {
     try {
       setCameraError(null);
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: 640, height: 480 }
-      });
-      setStream(mediaStream);
+      stopCamera();
+
+      // Enumerate devices to populate the dropdown
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const cameras = devices.filter(d => d.kind === 'videoinput');
+      setVideoDevices(cameras);
+
+      // Determine which device to use
+      let targetDeviceId = deviceId || '';
+
+      if (!targetDeviceId && cameras.length > 0) {
+        targetDeviceId = cameras[0].deviceId;
+        setSelectedDeviceId(targetDeviceId);
+      }
+
+      const constraints: MediaStreamConstraints = {
+        video: targetDeviceId
+          ? { deviceId: { exact: targetDeviceId }, width: 640, height: 480 }
+          : { facingMode: 'environment', width: 640, height: 480 }
+      };
+
+      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      streamRef.current = mediaStream;
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
       }
+
+      // Re-enumerate after permission to get full device labels
+      const updatedDevices = await navigator.mediaDevices.enumerateDevices();
+      const updatedCameras = updatedDevices.filter(d => d.kind === 'videoinput');
+      setVideoDevices(updatedCameras);
     } catch (err) {
       console.error('Camera error:', err);
       setCameraError('Unable to access camera. Please check permissions or upload an image.');
     }
-  }, []);
-
-  const stopCamera = useCallback(() => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-      setStream(null);
-    }
-  }, [stream]);
+  }, [stopCamera]);
 
   useEffect(() => {
     startCamera();
     return () => stopCamera();
   }, []);
+
+  // Handle camera selection change
+  const handleCameraChange = useCallback((newDeviceId: string) => {
+    setSelectedDeviceId(newDeviceId);
+    setCapturedImage(null);
+    startCamera(newDeviceId);
+  }, [startCamera]);
 
   const captureImage = useCallback(() => {
     if (videoRef.current && canvasRef.current) {
@@ -85,8 +125,8 @@ const CameraCapture = ({ onCapture, status }: CameraCaptureProps) => {
 
   const resetCapture = useCallback(() => {
     setCapturedImage(null);
-    startCamera();
-  }, [startCamera]);
+    startCamera(selectedDeviceId || undefined);
+  }, [startCamera, selectedDeviceId]);
 
   const statusConfig: Record<CameraStatus, { icon: typeof Camera; label: string; color: string; animate?: boolean }> = {
     ready: { icon: Camera, label: 'Ready to Capture', color: 'text-primary' },
@@ -110,6 +150,25 @@ const CameraCapture = ({ onCapture, status }: CameraCaptureProps) => {
           className="hidden"
         />
 
+        {/* Camera Selector */}
+        {videoDevices.length > 1 && (
+          <div className="flex items-center gap-2">
+            <SwitchCamera className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <Select value={selectedDeviceId} onValueChange={handleCameraChange}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Select Camera" />
+              </SelectTrigger>
+              <SelectContent>
+                {videoDevices.map((device, index) => (
+                  <SelectItem key={device.deviceId} value={device.deviceId}>
+                    {device.label || `Camera ${index + 1}`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         {/* Camera Preview */}
         <div className="relative aspect-square w-full max-w-md mx-auto overflow-hidden rounded-xl bg-muted">
           {cameraError && !capturedImage ? (
@@ -117,7 +176,7 @@ const CameraCapture = ({ onCapture, status }: CameraCaptureProps) => {
               <AlertCircle className="h-12 w-12 text-destructive" />
               <p className="text-muted-foreground">{cameraError}</p>
               <div className="flex gap-2">
-                <Button onClick={startCamera} variant="outline" size="sm">
+                <Button onClick={() => startCamera()} variant="outline" size="sm">
                   <RefreshCw className="h-4 w-4 mr-2" />
                   Retry Camera
                 </Button>
